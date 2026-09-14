@@ -1,0 +1,54 @@
+{
+  "dataset_rows": 500,
+  "selected_rows": 24,
+  "selection_method": "binary linear optimization over a SHA-256 seeded objective",
+  "difficulty_quotas": {
+    "long": 12,
+    "medium": 12
+  },
+  "repo_counts": {
+    "astropy/astropy": 4,
+    "django/django": 4,
+    "matplotlib/matplotlib": 3,
+    "pylint-dev/pylint": 1,
+    "pytest-dev/pytest": 3,
+    "scikit-learn/scikit-learn": 1,
+    "sphinx-doc/sphinx": 4,
+    "sympy/sympy": 4
+  },
+  "heuristic_title_labels_not_for_inference": {
+    "bug_fix": 24
+  },
+  "constraints": {
+    "minimum_repositories": 8,
+    "per_repository_max": 4,
+    "quick_tasks_excluded": true
+  },
+  "selection_script_sha256": "905518dc77a682d9ee492147ed835cfa81296ac288380827e6464fa30f1e625d",
+  "selected_problem_sha256": {
+    "public-001": "c01334ec1b21a089c650cf2e7b96ab974469076bf1260d23885799e1f0a7551f",
+    "public-002": "a295c83e68ff62290947b0796b75659b94621b7f2340d6f0055512d04be3f1d1",
+    "public-003": "53b72f8a5aed23f5d11650d7d4ae0e36c820cfade3c8ebcc7b718055a80d1cb2",
+    "public-004": "005d3d61c2ffbfa601f53125a9fb5271a1a87979977b857204d9f3cf5190fba9",
+    "public-005": "b33c129178156fdb6d35f4d406ac6090bc6fbb7b220893ec068c0d76d7bca1ea",
+    "public-006": "fa0d64caaae3c17b9e52c447593c2c8ac3354046b1df2ceb293645b293b06090",
+    "public-007": "be59236cc1523a08327292712cb4cb8f939a49866e7355254a3efa586ae4fdd2",
+    "public-008": "d924c4fce88325ef036717d83eec6886a45e706bcdb2990f20049ed3d6377f07",
+    "public-009": "59bd59ccfcb72e1937305af38434e86d804f312430f62fe056769ed708670d49",
+    "public-010": "f6a488ca9ccd9717eed2b1b06381bfb2f0df1fcb770c10d2798a394581354770",
+    "public-011": "135da5f1618662180c804de8c65d94b1230e40361752a81fe3e698e8696a6350",
+    "public-012": "fe9420583d351e0e81a7cbc876fef18b386ba1d375bcfb031830f3885d4f4347",
+    "public-013": "04324b4ba13d4d4a7c28e790561dc0927851fc39eb3d245b2e688bb6a0de3174",
+    "public-014": "c86104555dc540eca4e1fc4625c95084e5ebe6bb5484acc6a9d4b2fca7378634",
+    "public-015": "2471cd247002e8cb4c9cff40999a0841dbfea96004fb15d6df9c23528395c011",
+    "public-016": "a2ab68a76bfcf2cb56a50c1e385a1b1bcbdc8ec024121323193d7034f2075d4f",
+    "public-017": "388fe0c5ce4e1358bcc58e7e4314ba618c2bb432bc814c80f0855adcc3659ec4",
+    "public-018": "b7113d548cb7ce3722699857d638d2acf607a5547ab13feaff1272d633d15e58",
+    "public-019": "cc2eb5d4afca2da5e00ca423f2dce2bf467613a98b9686da7dc19a08e1f4de0f",
+    "public-020": "7926d944c30024620395f3792e0585e9f9105999c2de9d57269a75f648dc5b2b",
+    "public-021": "7eec6e997311bf1014a07659710714c0a891fd0e5b9d58dadb31a83b23746330",
+    "public-022": "51eca986eb401e0dc2856252c823632a51285a5a0d70bd046d46c39362d0df02",
+    "public-023": "1edfd6e1183bb765b9186e8d8fdfe541d80ef44766baf7b722b7626235719599",
+    "public-024": "fb429ef2a603c20980fa2ed7dc66d00cc148ca8103d92b69662bb6c687f2e162"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "northline",
+  "version": "0.2.0",
+  "description": "Keep long-running software work aligned through verifiable delegation and evidence-gated handoffs.",
+  "author": {
+    "name": "qll070226-a11y",
+    "url": "https://github.com/qll070226-a11y"
+  },
+  "homepage": "https://github.com/qll070226-a11y/northline#readme",
+  "repository": "https://github.com/qll070226-a11y/northline",
+  "license": "MIT",
+  "keywords": ["agents", "delegation", "drift-detection", "handoff", "software-engineering"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Northline",
+    "shortDescription": "Keep long-running agent work aligned and verifiable.",
+    "longDescription": "Persists the root mission, scopes bounded Root/Worker/Leaf delegation, validates handoff evidence, blocks stale or out-of-scope work, and keeps final integration under Root control.",
+    "developerName": "qll070226-a11y",
+    "category": "Productivity",
+    "capabilities": ["Write"],
+    "websiteURL": "https://github.com/qll070226-a11y/northline",
+    "defaultPrompt": [
+      "Coordinate this implementation without losing the root objective.",
+      "Verify these sub-agent handoffs before integrating them.",
+      "Resume the current mission and show blocked work."
+    ],
+    "brandColor": "#0EA5E9",
+    "composerIcon": "./assets/northline-icon.png",
+    "logo": "./assets/northline-logo.png",
+    "logoDark": "./assets/northline-logo.png"
+  }
+}

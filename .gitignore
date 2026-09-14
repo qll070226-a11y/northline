@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+.venv-win/
+.venv-plugin/
+.northline/
+experiments/data/
+*.parquet
+results/
+.pytest_cache/
+.test-tmp/
+.ruff_cache/
+*.egg-info/
+outputs/

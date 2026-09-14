@@ -1,0 +1,25 @@
+{
+  "conditions": [
+    "single_agent",
+    "flat_multi_agent",
+    "natural_language_recursive",
+    "structured_contract",
+    "full_protocol"
+  ],
+  "seeds": [0],
+  "schedule_seed": 20260912,
+  "model_id": "provider/model-snapshot",
+  "prompt_version": "screening-v1",
+  "protocol_version": "0.1.0",
+  "budgets": {
+    "wall_clock_seconds": 1800,
+    "max_output_tokens": 20000,
+    "max_children": 4,
+    "max_depth": 2
+  },
+  "agent_command": ["python", "path/to/agent_backend.py"],
+  "evaluator_command": ["python", "path/to/evaluator_backend.py"],
+  "agent_timeout_seconds": 1800,
+  "evaluator_timeout_seconds": 600,
+  "continue_on_error": true
+}

@@ -1,0 +1,20 @@
+{
+  "name": "northline",
+  "interface": {
+    "displayName": "Northline"
+  },
+  "plugins": [
+    {
+      "name": "northline",
+      "source": {
+        "source": "local",
+        "path": "./plugins/northline"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

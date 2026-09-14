@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "northline"
+version = "0.2.0"
+description = "A Codex skill and plugin for verifiable long-horizon software delegation."
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{name = "qll070226-a11y"}]
+requires-python = ">=3.10"
+dependencies = ["jsonschema>=4.20"]
+
+[project.optional-dependencies]
+langgraph = ["langgraph>=0.2"]
+mcp = ["mcp>=2,<3"]
+research = ["numpy>=2", "scipy>=1.14", "pandas>=2.2", "statsmodels>=0.14"]
+benchmark = ["swebench==5.0.2", "datasets==5.0.1"]
+openai = ["openai>=2,<3"]
+dev = ["pytest>=8", "pyyaml>=6", "ruff>=0.9"]
+
+[project.scripts]
+northline = "northline.cli:main"
+northline-mcp = "northline.mcp_server:main"
+
+[project.urls]
+Homepage = "https://github.com/qll070226-a11y/northline"
+Repository = "https://github.com/qll070226-a11y/northline"
+Issues = "https://github.com/qll070226-a11y/northline/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+northline = ["schemas/*.json"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E9", "F", "I"]

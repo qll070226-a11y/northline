@@ -1,0 +1,13 @@
+{
+  "version": "0.1",
+  "task_types": ["bug_fix", "api_change", "test_completion", "refactor"],
+  "screening_tasks": 24,
+  "primary_confirmation_controlled_tasks": 120,
+  "public_sensitivity_tasks": 24,
+  "primary_model_families": 2,
+  "primary_conditions": 2,
+  "robustness_subset_tasks": 30,
+  "primary_seeds": 1,
+  "robustness_subset_additional_seeds": 1,
+  "synthetic_faults": ["scope_conflict", "stale_commit", "unsupported_completion", "ambiguous_goal"]
+}

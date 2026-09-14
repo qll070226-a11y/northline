@@ -1,0 +1,9 @@
+interface:
+  display_name: "Northline"
+  short_description: "Keep long agent tasks aligned and verifiable"
+  icon_small: "./assets/icon-small.png"
+  icon_large: "./assets/icon-large.png"
+  brand_color: "#0EA5E9"
+  default_prompt: "Use $northline to coordinate this implementation without losing the root objective."
+policy:
+  allow_implicit_invocation: true

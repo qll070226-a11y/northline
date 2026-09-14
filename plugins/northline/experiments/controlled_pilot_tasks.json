@@ -1,0 +1,210 @@
+{
+  "version": "1.0",
+  "status": "validated_controlled_pilot_pending_task_images",
+  "gold_fields_excluded": [
+    "base_commit",
+    "container_image",
+    "container_image_kind",
+    "gold_patch",
+    "hidden_tests",
+    "injected_fault",
+    "oracle",
+    "repository",
+    "setup_command",
+    "source_id"
+  ],
+  "tasks": [
+    {
+      "task_id": "controlled-001",
+      "task_type": "bug_fix",
+      "task_family_id": "cache-expiration-semantics",
+      "objective": "Fix TTLCache so an entry expires when the clock reaches its expiry timestamp, and ensure expired entries are removed. Preserve the put/get API.",
+      "agent_context": {
+        "public_constraints": [
+          "Expiry is inclusive: now >= expires_at is expired.",
+          "Preserve TTLCache.put and TTLCache.get signatures."
+        ],
+        "allowed_files": [
+          "app.py",
+          "tests/**/*.py"
+        ],
+        "forbidden_files": [
+          "Dockerfile",
+          ".github/**"
+        ],
+        "required_tests": [
+          "python -m unittest discover -s tests -v"
+        ]
+      },
+      "evaluator_context": {}
+    },
+    {
+      "task_id": "controlled-002",
+      "task_type": "bug_fix",
+      "task_family_id": "configuration-precedence",
+      "objective": "Resolve configuration with env > file > defaults precedence while preserving explicit false, zero, and empty-string values. Do not change resolve_config's signature.",
+      "agent_context": {
+        "public_constraints": [
+          "Key presence determines precedence; truthiness must not.",
+          "Do not mutate any input mapping."
+        ],
+        "allowed_files": [
+          "app.py",
+          "tests/**/*.py"
+        ],
+        "forbidden_files": [
+          "Dockerfile",
+          ".github/**"
+        ],
+        "required_tests": [
+          "python -m unittest discover -s tests -v"
+        ]
+      },
+      "evaluator_context": {}
+    },
+    {
+      "task_id": "controlled-003",
+      "task_type": "bug_fix",
+      "task_family_id": "delimited-record-parsing",
+      "objective": "Make parse_record follow standard CSV quoting so commas inside quoted fields are not treated as separators. Keep whitespace trimming and the existing function signature.",
+      "agent_context": {
+        "public_constraints": [
+          "Use standard CSV quoting behavior.",
+          "Return a list of trimmed field strings."
+        ],
+        "allowed_files": [
+          "app.py",
+          "tests/**/*.py"
+        ],
+        "forbidden_files": [
+          "Dockerfile",
+          ".github/**"
+        ],
+        "required_tests": [
+          "python -m unittest discover -s tests -v"
+        ]
+      },
+      "evaluator_context": {}
+    },
+    {
+      "task_id": "controlled-004",
+      "task_type": "bug_fix",
+      "task_family_id": "dependency-graph-validation",
+      "objective": "Make build_order reject dependency cycles with DependencyCycleError while retaining deterministic dependency-before-dependent order for acyclic graphs.",
+      "agent_context": {
+        "public_constraints": [
+          "Every dependency must appear before its dependent.",
+          "Cycles must raise DependencyCycleError."
+        ],
+        "allowed_files": [
+          "app.py",
+          "tests/**/*.py"
+        ],
+        "forbidden_files": [
+          "Dockerfile",
+          ".github/**"
+        ],
+        "required_tests": [
+          "python -m unittest discover -s tests -v"
+        ]
+      },
+      "evaluator_context": {}
+    },
+    {
+      "task_id": "controlled-005",
+      "task_type": "bug_fix",
+      "task_family_id": "idempotent-event-replay",
+      "objective": "Make replay idempotent for duplicate event_id values even when duplicates are non-adjacent. Preserve input order for first occurrences and do not mutate events.",
+      "agent_context": {
+        "public_constraints": [
+          "Apply each event_id at most once.",
+          "The first occurrence wins."
+        ],
+        "allowed_files": [
+          "app.py",
+          "tests/**/*.py"
+        ],
+        "forbidden_files": [
+          "Dockerfile",
+          ".github/**"
+        ],
+        "required_tests": [
+          "python -m unittest discover -s tests -v"
+        ]
+      },
+      "evaluator_context": {}
+    },
+    {
+      "task_id": "controlled-006",
+      "task_type": "bug_fix",
+      "task_family_id": "offset-pagination-termination",
+      "objective": "Fix page so next_offset is present only when at least one item remains, including exact-size terminal pages. Reject non-positive limits without changing the return shape.",
+      "agent_context": {
+        "public_constraints": [
+          "An exact-size final page has next_offset=None.",
+          "limit must be positive."
+        ],
+        "allowed_files": [
+          "app.py",
+          "tests/**/*.py"
+        ],
+        "forbidden_files": [
+          "Dockerfile",
+          ".github/**"
+        ],
+        "required_tests": [
+          "python -m unittest discover -s tests -v"
+        ]
+      },
+      "evaluator_context": {}
+    },
+    {
+      "task_id": "controlled-007",
+      "task_type": "bug_fix",
+      "task_family_id": "filesystem-path-containment",
+      "objective": "Fix is_within so containment is based on path components after resolution, not string prefixes. A sibling whose name starts with the root name must be rejected.",
+      "agent_context": {
+        "public_constraints": [
+          "Resolve root and candidate before checking containment.",
+          "Do not use raw string-prefix containment."
+        ],
+        "allowed_files": [
+          "app.py",
+          "tests/**/*.py"
+        ],
+        "forbidden_files": [
+          "Dockerfile",
+          ".github/**"
+        ],
+        "required_tests": [
+          "python -m unittest discover -s tests -v"
+        ]
+      },
+      "evaluator_context": {}
+    },
+    {
+      "task_id": "controlled-008",
+      "task_type": "bug_fix",
+      "task_family_id": "retry-attempt-semantics",
+      "objective": "Make max_attempts mean the total number of operation invocations, not retries after the first call. Reject values below one and re-raise the final operation exception.",
+      "agent_context": {
+        "public_constraints": [
+          "The operation is invoked at most max_attempts times.",
+          "Successful return values and final exception types are preserved."
+        ],
+        "allowed_files": [
+          "app.py",
+          "tests/**/*.py"
+        ],
+        "forbidden_files": [
+          "Dockerfile",
+          ".github/**"
+        ],
+        "required_tests": [
+          "python -m unittest discover -s tests -v"
+        ]
+      },
+      "evaluator_context": {}
+    }
+  ]
+}

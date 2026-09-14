@@ -1,0 +1,78 @@
+from pathlib import Path
+
+import pytest
+
+from northline.models import DelegationContract, HandoffReceipt, HandoffStatus, MissionState
+from northline.project_store import ProjectStore
+
+
+def artifacts():
+    mission = MissionState("mission_1", "preserve the root goal", acceptance_criteria=("tests pass",), root_commit="base")
+    contract = DelegationContract(
+        objective="fix parser",
+        in_scope=("parser",),
+        out_of_scope=("public API",),
+        allowed_files=("src/**/*.py",),
+        forbidden_files=("pyproject.toml",),
+        acceptance_criteria=("tests pass",),
+        required_tests=("pytest",),
+        base_commit="base",
+        parent_id="root",
+        mission_id="mission_1",
+        contract_id="contract_1",
+    )
+    receipt = HandoffReceipt(
+        contract_id="contract_1",
+        agent_id="worker_001",
+        status=HandoffStatus.REPORTING,
+        base_commit="base",
+        result_commit="result",
+        changed_files=("src/parser.py",),
+        diff_summary="fixed parser",
+        tests_run=("pytest",),
+        test_results=("pass",),
+        acceptance_evidence={"tests pass": "pytest: pass"},
+        receipt_id="receipt_1",
+    )
+    return mission, contract, receipt
+
+
+def test_project_store_persists_and_verifies_without_integrating(tmp_path: Path):
+    source = tmp_path / "src" / "app.py"
+    source.parent.mkdir()
+    source.write_text("original\n", encoding="utf-8")
+    mission, contract, receipt = artifacts()
+    store = ProjectStore(tmp_path)
+    store.initialize(mission.to_dict())
+    store.save_contract(contract.to_dict())
+    result = store.verify_and_record("contract_1", receipt.to_dict(), "base", "worker_001")
+    status = store.status()
+    assert result["mergeable"] is True
+    assert result["integration_authorized"] is True
+    assert result["integrated"] is False
+    assert status["contract_count"] == 1
+    assert status["mergeable_count"] == 1
+    assert source.read_text(encoding="utf-8") == "original\n"
+    assert (tmp_path / ".northline" / "events.jsonl").is_file()
+
+
+def test_project_store_records_blocked_receipt(tmp_path: Path):
+    mission, contract, receipt = artifacts()
+    store = ProjectStore(tmp_path)
+    store.initialize(mission.to_dict())
+    store.save_contract(contract.to_dict())
+    bad = {**receipt.to_dict(), "receipt_id": "receipt_bad", "changed_files": ["pyproject.toml"]}
+    result = store.verify_and_record("contract_1", bad, "base", "worker_001")
+    assert result["mergeable"] is False
+    assert store.status()["blocked_count"] == 1
+
+
+def test_project_store_refuses_overwrite_and_unsafe_ids(tmp_path: Path):
+    mission, contract, _ = artifacts()
+    store = ProjectStore(tmp_path)
+    store.initialize(mission.to_dict())
+    with pytest.raises(FileExistsError):
+        store.initialize(mission.to_dict())
+    bad = {**contract.to_dict(), "contract_id": "../escape"}
+    with pytest.raises(ValueError, match="safe path component"):
+        store.save_contract(bad)

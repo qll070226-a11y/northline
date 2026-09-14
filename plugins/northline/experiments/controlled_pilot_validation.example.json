@@ -1,0 +1,27 @@
+{
+  "conditions": [
+    "single_agent"
+  ],
+  "seeds": [0],
+  "schedule_seed": 20260913,
+  "model_id": "sealed-oracle-validation-only",
+  "prompt_version": "not-applicable",
+  "protocol_version": "0.1.0",
+  "budgets": {
+    "wall_clock_seconds": 60,
+    "max_output_tokens": 0,
+    "max_children": 0,
+    "max_depth": 0
+  },
+  "agent_command": [
+    ".venv-win/Scripts/python.exe",
+    "experiments/backends/sealed_patch_agent.py"
+  ],
+  "evaluator_command": [
+    ".venv-win/Scripts/python.exe",
+    "experiments/backends/controlled_evaluator.py"
+  ],
+  "agent_timeout_seconds": 60,
+  "evaluator_timeout_seconds": 120,
+  "continue_on_error": false
+}

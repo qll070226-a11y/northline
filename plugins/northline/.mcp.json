@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "northline": {
+      "command": "cmd.exe",
+      "args": ["/d", "/s", "/c", "call", "scripts\\launch_mcp.cmd"],
+      "cwd": ".",
+      "enabled": true,
+      "startup_timeout_sec": 180,
+      "tool_timeout_sec": 120
+    }
+  }
+}
