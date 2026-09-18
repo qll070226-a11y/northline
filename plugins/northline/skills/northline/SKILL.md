@@ -29,6 +29,8 @@ Persist the assignment with `delegate_project_task`, then use `prepare_project_w
 
 Before interruption, context handoff, or blocked work, call `record_agent_checkpoint` with concrete completed work, pending work, blockers, and notes. Northline records the observed worktree commit and dirty-file state. On resume, compare the checkpoint with `workspace_health`; inspect any work done after the checkpoint before continuing.
 
+Use `run_codex_project_agent` only after the user or Root explicitly authorizes an external model run. It invokes Codex CLI with the `workspace-write` sandbox, persists JSONL events, usage, thread id, and final output, and never authorizes integration. A successful run enters `reporting`; a failed run enters `partial` with a technical checkpoint. Use `retry_project_execution` only when its checkpoint still matches the worktree and the project attempt limit is not exhausted. Resume the previous Codex thread when continuity is useful; escalate instead when the parent HEAD or contract scope changed.
+
 Use `check_parallel_safety` before parallel work. File disjointness alone is insufficient when contracts share APIs, schemas, migrations, or ordering dependencies. Root may create Workers; an authorized Worker may create Leafs; Leafs do not delegate.
 
 ## Receive and verify
@@ -44,6 +46,8 @@ Reject or revise work when the receipt is stale, out of scope, assigned to anoth
 When completion requires a newer base, wider scope, or conflict with a root constraint, stop work and use the escalation protocol. Root decides; root-constraint changes also require explicit user approval. Approval creates contract version `n+1` at current parent HEAD, and old receipts remain invalid.
 
 Use `get_project_report` when Root needs the complete delegation tree, event timeline, verification summaries, and protocol overhead counts. Read [references/escalation.md](references/escalation.md) when an escalation is needed. Read [references/product-workflow.md](references/product-workflow.md) when using the MCP/CLI interfaces or inspecting `.northline/` artifacts.
+
+After an execution is `integrated` or intentionally `rejected`, use `cleanup_project_workspace` only with explicit Root confirmation. Never remove the root workspace, an active worktree, or a worktree with uncommitted changes.
 
 ## Completion rule
 

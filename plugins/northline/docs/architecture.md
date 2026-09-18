@@ -38,6 +38,7 @@ Defaults are maximum depth 2 and at most 4 children per parent. A child cannot c
 | `ExecutionState` | Agent, role, workspace, current commit, status history | Engine |
 | `AgentTaskPacket` | Exact mission/contract/workspace payload dispatched to one child | Parent/Engine |
 | `AgentCheckpoint` | Observed commit, dirty files, completed/pending work, blockers | Child/Engine |
+| `AgentRunRecord` | Codex thread, attempt, command, JSONL trace, usage, result | Engine |
 | `HandoffReceipt` | Child's claims about commit, diff, tests, evidence, assumptions, risks | Child |
 | `RepositoryEvidence` | Git facts and independently executed test results | Verifier |
 | `EscalationRequest/Decision` | Stop-work request and parent/user decision | Child/Parent |
@@ -78,6 +79,8 @@ Test commands are authority-bearing input from the Root contract and run locally
 |-- contract-history/<contract-id>/v<n>.json
 |-- dispatches/<packet-id>.json
 |-- checkpoints/<contract-id>/<checkpoint-id>.json
+|-- agent-runs/<run-id>.json
+|-- run-artifacts/<run-id>/events.jsonl
 |-- executions/<contract-id>.json
 |-- receipts/<receipt-id>.json
 |-- verifications/<receipt-id>.json
@@ -97,6 +100,7 @@ resume/init
     -> delegate contract
     -> prepare isolated worktree
     -> persist and deliver agent task packet
+    -> explicitly authorized runtime launch
     -> claimed -> executing
     -> checkpoint before interruption or blocking
     -> child commit + evidence-backed receipt draft
@@ -118,11 +122,13 @@ Parallel execution is allowed only when file scopes, interfaces, schemas, migrat
 
 OpenHands, SWE-agent, MetaGPT, and ChatDev are reference implementations for execution environments, repository interaction, and role workflows. Northline does not embed their runtimes. This keeps the protocol measurable and lets future adapters use them without changing the trust model.
 
-## v0.5 constraints
+## v0.6 constraints
 
 - Python/Git repositories are the supported execution target.
 - Integration recognition requires the exact verified result commit to be reachable from parent HEAD; squash and cherry-pick equivalence are not inferred.
-- Worktrees are prepared but not automatically deleted; cleanup remains an explicit future lifecycle operation.
-- Northline emits runtime-neutral task packets but does not itself start an external model or Codex task.
+- Codex CLI runs require an explicit authorization flag and use `workspace-write`; Northline never selects `danger-full-access`.
+- Runtime failure becomes `PARTIAL`, records a technical checkpoint, and can retry only within the configured attempt limit.
+- Worktree cleanup is explicit and limited to clean `INTEGRATED` or `REJECTED` executions.
+- The Codex CLI adapter is implemented; OpenHands and other runtime adapters remain future work.
 - Semantic goal satisfaction remains partly dependent on Root review; deterministic gates cover state, scope, identity, dependency, and evidence claims.
 - Multi-machine scheduling, UI, online learning, and unbounded recursive delegation are out of scope.

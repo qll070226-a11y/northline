@@ -36,6 +36,8 @@ Northline 默认采用受约束的 `Root -> Worker -> Leaf` 委派树，最大�
 | 可追溯性 | 事件日志能够还原委派树、状态转换、验证结果与阻断原因 |
 | 中断恢复 | Git 支持的检查点记录已完成、待办、阻塞和 worktree 状态 |
 | 版本迁移 | `.northline/project.json` 标识 schema，旧项目通过显式命令迁移 |
+| 运行适配 | 显式授权后以 `workspace-write` 启动 Codex CLI，保存 JSONL、thread 和 usage |
+| 有界恢复 | 运行失败自动检查点，按策略限制重试次数，过期基线必须升级而非重试 |
 | 安全集成 | `VERIFIED` 只授权审查；Root 合并并复测后才记录 `INTEGRATED` |
 
 ## 安装 Plugin
@@ -124,6 +126,9 @@ northline status --workspace .
 | `decide_project_escalation` | 保存 Root/用户对升级请求的决定 |
 | `revise_project_contract` | 安装获批的新契约版本并重新开始 |
 | `get_project_report` | 汇总委派树、时间线、验证摘要和协议指标 |
+| `run_codex_project_agent` | 显式授权后执行 Codex CLI 并保存运行证据 |
+| `retry_project_execution` | 在检查点一致且未超过上限时规划下一次尝试 |
+| `cleanup_project_workspace` | 经 Root 确认后清理干净的终态 worktree |
 
 ## 持久化布局
 
@@ -136,6 +141,8 @@ northline status --workspace .
 |-- contract-history/*/v*.json
 |-- dispatches/*.json
 |-- checkpoints/<contract-id>/*.json
+|-- agent-runs/*.json
+|-- run-artifacts/<run-id>/events.jsonl
 |-- executions/*.json
 |-- receipts/*.json
 |-- verifications/*.json

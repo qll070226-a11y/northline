@@ -10,7 +10,7 @@ from .models import ProtocolPolicy
 from .schema import validate_payload
 from .version import __version__
 
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 
 
 class ProjectStore:
@@ -65,6 +65,7 @@ class ProjectStore:
             "contract-history",
             "dispatches",
             "checkpoints",
+            "agent-runs",
             "executions",
             "receipts",
             "verifications",
@@ -117,13 +118,14 @@ class ProjectStore:
         if not status["migration_required"]:
             return {**status, "migrated": False}
         from_version = int(status["schema_version"])
-        if from_version != 0:
+        if from_version not in {0, 1}:
             raise ValueError(f"no migration path from schema version {from_version}")
-        for directory in ("dispatches", "checkpoints"):
+        for directory in ("dispatches", "checkpoints", "agent-runs"):
             (self.control / directory).mkdir(parents=True, exist_ok=True)
+        previous = self._read_json(self.project_path) if self.project_path.is_file() else {}
         metadata = {
             "schema_version": CURRENT_SCHEMA_VERSION,
-            "created_with": "legacy",
+            "created_with": previous.get("created_with", "legacy"),
             "updated_with": __version__,
         }
         self._write_json(self.project_path, metadata)
@@ -241,9 +243,11 @@ class ProjectStore:
         )
         return payload
 
-    def latest_checkpoint(self, contract_id: str) -> dict[str, Any]:
+    def latest_checkpoint(self, contract_id: str, attempt: int | None = None) -> dict[str, Any]:
         root = self.control / "checkpoints" / self._safe_id(contract_id)
         matches = [self._read_json(path) for path in sorted(root.glob("*.json"))] if root.is_dir() else []
+        if attempt is not None:
+            matches = [item for item in matches if int(item.get("attempt", 1)) == attempt]
         if not matches:
             raise FileNotFoundError(f"no checkpoint for contract: {contract_id}")
         return max(matches, key=lambda item: str(item.get("recorded_at", "")))
@@ -251,6 +255,56 @@ class ProjectStore:
     def checkpoints(self) -> list[dict[str, Any]]:
         root = self.control / "checkpoints"
         return [self._read_json(path) for path in sorted(root.glob("*/*.json"))] if root.is_dir() else []
+
+    def save_agent_run(self, run: dict[str, Any]) -> dict[str, Any]:
+        self._require_current_schema()
+        validate_payload("agentRun", run)
+        run_id = self._safe_id(str(run["run_id"]))
+        path = self.control / "agent-runs" / f"{run_id}.json"
+        if path.exists():
+            raise FileExistsError(f"agent run already exists: {run_id}")
+        payload = {**run, "recorded_at": self._timestamp()}
+        self._write_json(path, payload)
+        self._append_event(
+            "agent_run_recorded",
+            {
+                "run_id": run_id,
+                "contract_id": run["contract_id"],
+                "attempt": run["attempt"],
+                "status": run["status"],
+            },
+        )
+        return payload
+
+    def update_agent_run(self, run_id: str, updates: dict[str, Any]) -> dict[str, Any]:
+        safe_id = self._safe_id(run_id)
+        path = self.control / "agent-runs" / f"{safe_id}.json"
+        if not path.is_file():
+            raise FileNotFoundError(f"unknown agent run: {run_id}")
+        current = self._read_json(path)
+        recorded_at = current.pop("recorded_at", self._timestamp())
+        current.pop("updated_at", None)
+        payload = {**current, **updates}
+        validate_payload("agentRun", payload)
+        stored = {**payload, "recorded_at": recorded_at, "updated_at": self._timestamp()}
+        self._write_json(path, stored)
+        self._append_event(
+            "agent_run_finished",
+            {"run_id": safe_id, "contract_id": payload["contract_id"], "status": payload["status"]},
+        )
+        return stored
+
+    def agent_runs(self, contract_id: str | None = None) -> list[dict[str, Any]]:
+        runs = self._json_files("agent-runs")
+        if contract_id is None:
+            return runs
+        return [item for item in runs if item.get("contract_id") == contract_id]
+
+    def latest_agent_run(self, contract_id: str) -> dict[str, Any]:
+        matches = self.agent_runs(contract_id)
+        if not matches:
+            raise FileNotFoundError(f"no agent run for contract: {contract_id}")
+        return max(matches, key=lambda item: str(item.get("recorded_at", "")))
 
     def events(self) -> list[dict[str, Any]]:
         path = self.control / "events.jsonl"
@@ -353,6 +407,7 @@ class ProjectStore:
             "execution_count": len(executions),
             "dispatch_count": len(self._json_files("dispatches")),
             "checkpoint_count": len(self.checkpoints()),
+            "agent_run_count": len(self.agent_runs()),
             "execution_states": {
                 status: sum(item.get("status") == status for item in executions)
                 for status in sorted({str(item.get("status")) for item in executions})

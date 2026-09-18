@@ -12,6 +12,7 @@ SchemaKind = Literal[
     "contract",
     "dispatch",
     "checkpoint",
+    "agentRun",
     "receipt",
     "escalation",
     "escalationDecision",

@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -64,7 +65,7 @@ def test_project_store_persists_verification_without_integrating(tmp_path: Path)
     assert status["mergeable_count"] == 1
     assert status["policy"]["require_clean_evidence_workspace"] is True
     assert status["schema"]["state"] == "ready"
-    assert status["schema"]["schema_version"] == 1
+    assert status["schema"]["schema_version"] == 2
     assert source.read_text(encoding="utf-8") == "original\n"
     assert (tmp_path / ".northline" / "events.jsonl").is_file()
 
@@ -120,6 +121,7 @@ def test_project_store_requires_explicit_migration_for_new_artifacts(tmp_path: P
         "checkpoint_id": "checkpoint_legacy",
         "contract_id": "contract_legacy",
         "contract_version": 1,
+        "attempt": 1,
         "agent_id": "worker_legacy",
         "status": "executing",
         "current_commit": "base",
@@ -136,3 +138,17 @@ def test_project_store_requires_explicit_migration_for_new_artifacts(tmp_path: P
     assert migrated["from_schema_version"] == 0
     assert store.save_checkpoint(checkpoint)["checkpoint_id"] == "checkpoint_legacy"
     assert store.migrate()["migrated"] is False
+
+
+def test_project_store_migrates_schema_one_to_two(tmp_path: Path):
+    mission, _, _ = artifacts()
+    store = ProjectStore(tmp_path)
+    store.initialize(mission.to_dict())
+    store.project_path.write_text(
+        json.dumps({"schema_version": 1, "created_with": "0.5.0", "updated_with": "0.5.0"}),
+        encoding="utf-8",
+    )
+    migrated = store.migrate()
+    assert migrated["from_schema_version"] == 1
+    assert migrated["schema_version"] == 2
+    assert (store.control / "agent-runs").is_dir()

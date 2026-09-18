@@ -6,6 +6,8 @@ from .events import Event, EventLog
 from .models import (
     AgentCheckpoint,
     AgentRole,
+    AgentRunRecord,
+    AgentRunStatus,
     AgentTaskPacket,
     DelegationContract,
     EscalationDecision,
@@ -26,6 +28,8 @@ __all__ = [
     "AgentRole",
     "AgentCheckpoint",
     "AgentTaskPacket",
+    "AgentRunRecord",
+    "AgentRunStatus",
     "DelegationContract",
     "EscalationDecision",
     "EscalationKind",

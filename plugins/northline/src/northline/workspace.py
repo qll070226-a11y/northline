@@ -130,5 +130,19 @@ class GitWorkspace:
         self._run("worktree", "add", "--detach", str(target), ref)
         return GitWorkspace(target)
 
-    def remove_worktree(self, target: Path) -> None:
-        self._run("worktree", "remove", "--force", str(target))
+    def is_registered_worktree(self, target: Path) -> bool:
+        resolved = target.expanduser().resolve()
+        output = self._run("worktree", "list", "--porcelain")
+        registered = [
+            Path(line.removeprefix("worktree ")).expanduser().resolve()
+            for line in output.splitlines()
+            if line.startswith("worktree ")
+        ]
+        return resolved in registered
+
+    def remove_worktree(self, target: Path, *, force: bool = False) -> None:
+        arguments = ["worktree", "remove"]
+        if force:
+            arguments.append("--force")
+        arguments.append(str(target))
+        self._run(*arguments)

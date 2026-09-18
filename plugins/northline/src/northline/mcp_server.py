@@ -179,6 +179,34 @@ def create_server():
     def get_project_report(workspace: str) -> dict[str, Any]:
         return ProtocolEngine(workspace).project_report()
 
+    @server.tool(description="Run a prepared contract through Codex CLI with explicit Root authorization and persisted JSONL evidence.")
+    def run_codex_project_agent(
+        workspace: str,
+        contract_id: str,
+        authorized_by_root: bool,
+        model: str | None = None,
+        timeout_seconds: float = 3600,
+        resume_previous: bool = False,
+    ) -> dict[str, Any]:
+        return ProtocolEngine(workspace).run_codex_agent(
+            contract_id,
+            authorized_by_root=authorized_by_root,
+            model=model,
+            timeout_seconds=timeout_seconds,
+            resume_previous=resume_previous,
+        )
+
+    @server.tool(description="Plan a new execution attempt after a checkpointed partial run or rejected handoff.")
+    def retry_project_execution(workspace: str, contract_id: str, reason: str) -> dict[str, Any]:
+        return ProtocolEngine(workspace).retry_execution(contract_id, reason=reason)
+
+    @server.tool(description="Remove a clean terminal worktree only after explicit Root confirmation.")
+    def cleanup_project_workspace(workspace: str, contract_id: str, confirmed_by_root: bool) -> dict[str, Any]:
+        return ProtocolEngine(workspace).cleanup_workspace(
+            contract_id,
+            confirmed_by_root=confirmed_by_root,
+        )
+
     @server.tool(description="Draft a receipt from the assigned worktree's observed commit, diff, and freshly executed tests.")
     def draft_project_receipt(
         workspace: str,

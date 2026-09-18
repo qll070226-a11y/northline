@@ -28,7 +28,8 @@
         "require_clean_evidence_workspace": {"type": "boolean"},
         "require_required_tests": {"type": "boolean"},
         "max_changed_files": {"type": "integer", "minimum": 1},
-        "max_test_timeout_seconds": {"type": "number", "minimum": 1, "maximum": 3600}
+        "max_test_timeout_seconds": {"type": "number", "minimum": 1, "maximum": 3600},
+        "max_agent_attempts": {"type": "integer", "minimum": 1, "maximum": 10}
       }
     },
     "contract": {
@@ -55,7 +56,7 @@
     "dispatch": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["packet_id", "mission_id", "root_objective", "root_acceptance_criteria", "root_decisions", "contract_id", "contract_version", "agent_id", "role", "parent_id", "workspace", "base_commit", "objective", "global_constraints", "in_scope", "out_of_scope", "allowed_files", "forbidden_files", "acceptance_criteria", "required_tests", "protocol_rules"],
+      "required": ["packet_id", "mission_id", "root_objective", "root_acceptance_criteria", "root_decisions", "contract_id", "contract_version", "attempt", "agent_id", "role", "parent_id", "workspace", "base_commit", "workspace_commit", "workspace_status", "objective", "global_constraints", "in_scope", "out_of_scope", "allowed_files", "forbidden_files", "acceptance_criteria", "required_tests", "protocol_rules"],
       "properties": {
         "packet_id": {"type": "string", "minLength": 1},
         "mission_id": {"type": "string", "minLength": 1},
@@ -64,11 +65,14 @@
         "root_decisions": {"$ref": "#/$defs/stringArray"},
         "contract_id": {"type": "string", "minLength": 1},
         "contract_version": {"type": "integer", "minimum": 1},
+        "attempt": {"type": "integer", "minimum": 1},
         "agent_id": {"type": "string", "minLength": 1},
         "role": {"enum": ["worker", "leaf"]},
         "parent_id": {"type": "string", "minLength": 1},
         "workspace": {"type": "string", "minLength": 1},
         "base_commit": {"type": "string", "minLength": 1},
+        "workspace_commit": {"type": "string", "minLength": 1},
+        "workspace_status": {"$ref": "#/$defs/stringArray"},
         "objective": {"type": "string", "minLength": 1},
         "global_constraints": {"$ref": "#/$defs/stringArray"},
         "in_scope": {"$ref": "#/$defs/stringArray"},
@@ -84,11 +88,12 @@
     "checkpoint": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["checkpoint_id", "contract_id", "contract_version", "agent_id", "status", "current_commit", "completed", "pending", "blockers", "notes", "workspace_status"],
+      "required": ["checkpoint_id", "contract_id", "contract_version", "attempt", "agent_id", "status", "current_commit", "completed", "pending", "blockers", "notes", "workspace_status"],
       "properties": {
         "checkpoint_id": {"type": "string", "minLength": 1},
         "contract_id": {"type": "string", "minLength": 1},
         "contract_version": {"type": "integer", "minimum": 1},
+        "attempt": {"type": "integer", "minimum": 1},
         "agent_id": {"type": "string", "minLength": 1},
         "status": {"enum": ["claimed", "executing", "partial", "blocked"]},
         "current_commit": {"type": "string", "minLength": 1},
@@ -97,6 +102,28 @@
         "blockers": {"$ref": "#/$defs/stringArray"},
         "notes": {"$ref": "#/$defs/stringArray"},
         "workspace_status": {"$ref": "#/$defs/stringArray"}
+      }
+    },
+    "agentRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "contract_id", "contract_version", "attempt", "agent_id", "runtime", "status", "command", "thread_id", "returncode", "event_log", "final_message_path", "final_message", "error", "usage"],
+      "properties": {
+        "run_id": {"type": "string", "minLength": 1},
+        "contract_id": {"type": "string", "minLength": 1},
+        "contract_version": {"type": "integer", "minimum": 1},
+        "attempt": {"type": "integer", "minimum": 1},
+        "agent_id": {"type": "string", "minLength": 1},
+        "runtime": {"const": "codex_cli"},
+        "status": {"enum": ["running", "succeeded", "failed"]},
+        "command": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "thread_id": {"type": ["string", "null"]},
+        "returncode": {"type": ["integer", "null"]},
+        "event_log": {"type": ["string", "null"]},
+        "final_message_path": {"type": ["string", "null"]},
+        "final_message": {"type": ["string", "null"]},
+        "error": {"type": ["string", "null"]},
+        "usage": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}}
       }
     },
     "receipt": {

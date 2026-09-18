@@ -36,6 +36,12 @@ class EscalationKind(str, Enum):
     BLOCKED = "blocked"
 
 
+class AgentRunStatus(str, Enum):
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+
+
 def _id(prefix: str) -> str:
     return f"{prefix}_{uuid4().hex[:12]}"
 
@@ -93,6 +99,7 @@ class ProtocolPolicy:
     require_required_tests: bool = True
     max_changed_files: int = 200
     max_test_timeout_seconds: float = 600
+    max_agent_attempts: int = 3
     version: int = 1
 
     def __post_init__(self) -> None:
@@ -102,6 +109,8 @@ class ProtocolPolicy:
             raise ValueError("max_changed_files must be positive")
         if not 1 <= self.max_test_timeout_seconds <= 3600:
             raise ValueError("max_test_timeout_seconds must be between 1 and 3600")
+        if not 1 <= self.max_agent_attempts <= 10:
+            raise ValueError("max_agent_attempts must be between 1 and 10")
 
     def to_dict(self) -> dict[str, Any]:
         return _json_ready(asdict(self))
@@ -116,6 +125,7 @@ class ProtocolPolicy:
             require_required_tests=bool(data.get("require_required_tests", True)),
             max_changed_files=int(data.get("max_changed_files", 200)),
             max_test_timeout_seconds=float(data.get("max_test_timeout_seconds", 600)),
+            max_agent_attempts=int(data.get("max_agent_attempts", 3)),
             version=int(data.get("version", 1)),
         )
 
@@ -195,11 +205,14 @@ class AgentTaskPacket:
     root_decisions: tuple[str, ...]
     contract_id: str
     contract_version: int
+    attempt: int
     agent_id: str
     role: AgentRole
     parent_id: str
     workspace: str
     base_commit: str
+    workspace_commit: str
+    workspace_status: tuple[str, ...]
     objective: str
     global_constraints: tuple[str, ...]
     in_scope: tuple[str, ...]
@@ -215,10 +228,12 @@ class AgentTaskPacket:
     def __post_init__(self) -> None:
         if self.contract_version < 1:
             raise ValueError("contract_version must be >= 1")
+        if self.attempt < 1:
+            raise ValueError("attempt must be >= 1")
         if self.role not in {AgentRole.WORKER, AgentRole.LEAF}:
             raise ValueError("task packets can only target worker or leaf agents")
-        if not self.workspace.strip() or not self.base_commit.strip():
-            raise ValueError("task packet requires workspace and base commit")
+        if not self.workspace.strip() or not self.base_commit.strip() or not self.workspace_commit.strip():
+            raise ValueError("task packet requires workspace, base commit, and workspace commit")
 
     def to_dict(self) -> dict[str, Any]:
         return _json_ready(asdict(self))
@@ -228,6 +243,7 @@ class AgentTaskPacket:
 class AgentCheckpoint:
     contract_id: str
     contract_version: int
+    attempt: int
     agent_id: str
     status: HandoffStatus
     current_commit: str
@@ -241,6 +257,8 @@ class AgentCheckpoint:
     def __post_init__(self) -> None:
         if self.contract_version < 1:
             raise ValueError("contract_version must be >= 1")
+        if self.attempt < 1:
+            raise ValueError("attempt must be >= 1")
         if self.status not in {
             HandoffStatus.CLAIMED,
             HandoffStatus.EXECUTING,
@@ -261,6 +279,7 @@ class AgentCheckpoint:
         return cls(
             contract_id=str(data["contract_id"]),
             contract_version=int(data["contract_version"]),
+            attempt=int(data.get("attempt", 1)),
             agent_id=str(data["agent_id"]),
             status=HandoffStatus(data["status"]),
             current_commit=str(data["current_commit"]),
@@ -271,6 +290,34 @@ class AgentCheckpoint:
             workspace_status=tuple(data.get("workspace_status", ())),
             checkpoint_id=str(data.get("checkpoint_id") or _id("checkpoint")),
         )
+
+
+@dataclass(frozen=True)
+class AgentRunRecord:
+    contract_id: str
+    contract_version: int
+    attempt: int
+    agent_id: str
+    runtime: str
+    status: AgentRunStatus
+    command: tuple[str, ...]
+    thread_id: str | None = None
+    returncode: int | None = None
+    event_log: str | None = None
+    final_message_path: str | None = None
+    final_message: str | None = None
+    error: str | None = None
+    usage: dict[str, int] = field(default_factory=dict)
+    run_id: str = field(default_factory=lambda: _id("run"))
+
+    def __post_init__(self) -> None:
+        if self.contract_version < 1 or self.attempt < 1:
+            raise ValueError("run contract version and attempt must be >= 1")
+        if not self.runtime.strip() or not self.command:
+            raise ValueError("run runtime and command are required")
+
+    def to_dict(self) -> dict[str, Any]:
+        return _json_ready(asdict(self))
 
 
 @dataclass(frozen=True)

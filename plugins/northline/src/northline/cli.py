@@ -59,6 +59,7 @@ def main() -> None:
     initialize.add_argument("--allow-empty-tests", action="store_true")
     initialize.add_argument("--max-changed-files", type=int, default=200)
     initialize.add_argument("--max-test-timeout-seconds", type=float, default=600)
+    initialize.add_argument("--max-agent-attempts", type=int, default=3)
     initialize.add_argument("--overwrite", action="store_true")
 
     contract_parser = sub.add_parser("contract", help="save and assign one child delegation contract")
@@ -126,6 +127,24 @@ def main() -> None:
 
     report_parser = sub.add_parser("report", help="render the delegation tree, timeline, and protocol metrics")
     report_parser.add_argument("--workspace", type=Path, default=Path.cwd())
+
+    run_codex_parser = sub.add_parser("run-codex", help="execute a prepared contract through Codex CLI")
+    run_codex_parser.add_argument("--workspace", type=Path, default=Path.cwd())
+    run_codex_parser.add_argument("--contract-id", required=True)
+    run_codex_parser.add_argument("--authorize", action="store_true")
+    run_codex_parser.add_argument("--model", default=None)
+    run_codex_parser.add_argument("--timeout-seconds", type=float, default=3600)
+    run_codex_parser.add_argument("--resume-previous", action="store_true")
+
+    retry_parser = sub.add_parser("retry", help="plan a new attempt after a partial or rejected execution")
+    retry_parser.add_argument("--workspace", type=Path, default=Path.cwd())
+    retry_parser.add_argument("--contract-id", required=True)
+    retry_parser.add_argument("--reason", required=True)
+
+    cleanup_parser = sub.add_parser("cleanup", help="remove a clean terminal contract worktree")
+    cleanup_parser.add_argument("--workspace", type=Path, default=Path.cwd())
+    cleanup_parser.add_argument("--contract-id", required=True)
+    cleanup_parser.add_argument("--confirm", action="store_true")
 
     verify = sub.add_parser("verify", help="verify and record a receipt without integrating source")
     verify.add_argument("--workspace", type=Path, default=Path.cwd())
@@ -195,6 +214,7 @@ def main() -> None:
             require_required_tests=not args.allow_empty_tests,
             max_changed_files=args.max_changed_files,
             max_test_timeout_seconds=args.max_test_timeout_seconds,
+            max_agent_attempts=args.max_agent_attempts,
         )
         _print(engine.initialize(mission.to_dict(), policy=policy.to_dict(), overwrite=args.overwrite))
     elif args.command == "contract":
@@ -247,6 +267,20 @@ def main() -> None:
         )
     elif args.command == "report":
         _print(engine.project_report())
+    elif args.command == "run-codex":
+        _print(
+            engine.run_codex_agent(
+                args.contract_id,
+                authorized_by_root=args.authorize,
+                model=args.model,
+                timeout_seconds=args.timeout_seconds,
+                resume_previous=args.resume_previous,
+            )
+        )
+    elif args.command == "retry":
+        _print(engine.retry_execution(args.contract_id, reason=args.reason))
+    elif args.command == "cleanup":
+        _print(engine.cleanup_workspace(args.contract_id, confirmed_by_root=args.confirm))
     elif args.command == "receipt":
         _print(
             engine.draft_receipt(

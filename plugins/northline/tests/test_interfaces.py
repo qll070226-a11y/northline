@@ -46,16 +46,17 @@ class InterfaceTests(unittest.TestCase):
         validate_payload("policy", ProtocolPolicy().to_dict())
         dispatch = AgentTaskPacket(
             mission_id="m1", root_objective="implement parser", root_acceptance_criteria=("tests pass",),
-            root_decisions=(), contract_id=contract["contract_id"], contract_version=1,
+            root_decisions=(), contract_id=contract["contract_id"], contract_version=1, attempt=1,
             agent_id="worker_001", role=AgentRole.WORKER, parent_id="root",
-            workspace="/tmp/work", base_commit="base", objective="implement parser",
+            workspace="/tmp/work", base_commit="base", workspace_commit="base", workspace_status=(),
+            objective="implement parser",
             global_constraints=(), in_scope=("parser",), out_of_scope=("API",),
             allowed_files=("src/**/*.py",), forbidden_files=("pyproject.toml",),
             acceptance_criteria=("tests pass",), required_tests=("pytest",), protocol_rules=("stay in scope",),
         )
         validate_payload("dispatch", dispatch.to_dict())
         checkpoint = AgentCheckpoint(
-            contract_id=contract["contract_id"], contract_version=1, agent_id="worker_001",
+            contract_id=contract["contract_id"], contract_version=1, attempt=1, agent_id="worker_001",
             status=HandoffStatus.EXECUTING, current_commit="base", completed=("inspection",), pending=("tests",),
         )
         validate_payload("checkpoint", checkpoint.to_dict())
@@ -98,6 +99,9 @@ class InterfaceTests(unittest.TestCase):
                 "create_agent_task_packet",
                 "record_agent_checkpoint",
                 "get_project_report",
+                "run_codex_project_agent",
+                "retry_project_execution",
+                "cleanup_project_workspace",
                 "draft_project_receipt",
                 "verify_project_handoff",
                 "record_project_integration",

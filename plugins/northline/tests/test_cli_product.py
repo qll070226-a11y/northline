@@ -65,6 +65,6 @@ def test_cli_initializes_contract_and_resumes_status(tmp_path: Path):
     assert recovery["next_actions"][0]["contract_id"] == "contract_cli"
     assert "prepare" in recovery["next_actions"][0]["action"]
     schema = run_cli("schema", "--workspace", workspace)
-    assert schema["schema_version"] == 1
+    assert schema["schema_version"] == 2
     report = run_cli("report", "--workspace", workspace)
     assert report["metrics"]["contract_count"] == 1

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from northline.agent_runtime import CodexCliRuntime
 from northline.engine import ProtocolEngine
 from northline.models import (
     DelegationContract,
@@ -252,6 +253,134 @@ def test_engine_dispatch_checkpoint_resume_and_report_root_worker_leaf(tmp_path:
     assert report["metrics"]["dispatch_count"] == 2
     assert report["metrics"]["checkpoint_count"] == 1
     assert any(event["event_type"] == "agent_checkpoint_recorded" for event in report["timeline"])
+
+
+def test_engine_runs_codex_records_failure_and_resumes_retry(tmp_path: Path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git(repo, "init", "-q")
+    git(repo, "config", "user.email", "test@example.com")
+    git(repo, "config", "user.name", "Test")
+    (repo / "app.py").write_text("base\n", encoding="utf-8")
+    git(repo, "add", ".")
+    git(repo, "commit", "-q", "-m", "base")
+    base = git(repo, "rev-parse", "HEAD")
+    engine = ProtocolEngine(repo)
+    engine.initialize(MissionState("mission_run", "execute safely", root_commit=base).to_dict())
+    contract = engine.draft_contract(
+        objective="inspect app",
+        in_scope=("application",),
+        out_of_scope=(),
+        allowed_files=("app.py",),
+        forbidden_files=(),
+        acceptance_criteria=("inspection complete",),
+        required_tests=("git status --porcelain",),
+        contract_id="contract_run",
+    )
+    engine.delegate(contract, agent_id="worker_run", role="worker")
+    child = tmp_path / "run-child"
+    engine.prepare_workspace("contract_run", child)
+
+    calls = 0
+
+    def runner(command, **kwargs):
+        nonlocal calls
+        calls += 1
+        output_path = Path(command[command.index("--output-last-message") + 1])
+        if calls == 1:
+            events = "\n".join(
+                (
+                    '{"type":"thread.started","thread_id":"thread_retry"}',
+                    '{"type":"turn.failed","error":"temporary failure"}',
+                )
+            )
+            return subprocess.CompletedProcess(command, 1, stdout=events, stderr="failed")
+        output_path.write_text("completed on retry", encoding="utf-8")
+        events = "\n".join(
+            (
+                '{"type":"thread.started","thread_id":"thread_retry"}',
+                '{"type":"turn.completed","usage":{"input_tokens":10,"output_tokens":4}}',
+            )
+        )
+        return subprocess.CompletedProcess(command, 0, stdout=events, stderr="")
+
+    runtime = CodexCliRuntime(executable=sys.executable, runner=runner)
+    with pytest.raises(PermissionError):
+        engine.run_codex_agent("contract_run", authorized_by_root=False, runtime=runtime)
+    failed = engine.run_codex_agent("contract_run", authorized_by_root=True, runtime=runtime)
+    assert failed["execution"]["status"] == "partial"
+    assert failed["run"]["status"] == "failed"
+    assert engine.status()["checkpoint_count"] == 1
+
+    retried = engine.retry_execution("contract_run", reason="temporary runtime failure")
+    assert retried["attempt"] == 2
+    assert retried["status"] == "planned"
+    succeeded = engine.run_codex_agent(
+        "contract_run",
+        authorized_by_root=True,
+        resume_previous=True,
+        runtime=runtime,
+    )
+    assert succeeded["execution"]["status"] == "reporting"
+    assert succeeded["run"]["status"] == "succeeded"
+    assert "resume" in succeeded["run"]["command"]
+    assert engine.project_report()["metrics"]["agent_run_count"] == 2
+
+
+def test_engine_blocks_retry_after_policy_attempt_limit(tmp_path: Path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git(repo, "init", "-q")
+    git(repo, "config", "user.email", "test@example.com")
+    git(repo, "config", "user.name", "Test")
+    (repo / "app.py").write_text("base\n", encoding="utf-8")
+    git(repo, "add", ".")
+    git(repo, "commit", "-q", "-m", "base")
+    base = git(repo, "rev-parse", "HEAD")
+    engine = ProtocolEngine(repo)
+    engine.initialize(
+        MissionState("mission_attempt_limit", "bound retries", root_commit=base).to_dict(),
+        policy=ProtocolPolicy(max_agent_attempts=1).to_dict(),
+    )
+    contract = engine.draft_contract(
+        objective="inspect app",
+        in_scope=("application",),
+        out_of_scope=(),
+        allowed_files=("app.py",),
+        forbidden_files=(),
+        acceptance_criteria=("inspection complete",),
+        required_tests=("git status --porcelain",),
+        contract_id="contract_attempt_limit",
+    )
+    engine.delegate(contract, agent_id="worker_attempt_limit", role="worker")
+    engine.prepare_workspace("contract_attempt_limit", tmp_path / "attempt-limit-child")
+
+    def failing_runner(command, **kwargs):
+        return subprocess.CompletedProcess(command, 1, stdout='{"type":"turn.failed","error":"failed"}', stderr="")
+
+    runtime = CodexCliRuntime(executable=sys.executable, runner=failing_runner)
+    engine.run_codex_agent("contract_attempt_limit", authorized_by_root=True, runtime=runtime)
+    with pytest.raises(ValueError, match="maximum agent attempts reached"):
+        engine.retry_execution("contract_attempt_limit", reason="try again")
+
+
+def test_engine_cleans_only_confirmed_clean_terminal_worktree(tmp_path: Path):
+    repo, child, base, result = make_repository(tmp_path)
+    engine, contract = prepare_engine(repo, child, base)
+    verification = engine.verify_handoff(
+        contract.contract_id,
+        receipt(contract, result, ("src/app.py",)).to_dict(),
+        evidence_workspace=child,
+    )
+    assert verification["mergeable"] is True
+    git(repo, "merge", "--ff-only", result)
+    engine.record_integration(contract.contract_id)
+    with pytest.raises(PermissionError):
+        engine.cleanup_workspace(contract.contract_id, confirmed_by_root=False)
+    cleaned = engine.cleanup_workspace(contract.contract_id, confirmed_by_root=True)
+    assert cleaned["cleaned"] is True
+    assert not child.exists()
+    assert engine.store.read_execution(contract.contract_id)["workspace"] is None
 
 
 def test_engine_blocks_receipt_that_disagrees_with_git(tmp_path: Path):

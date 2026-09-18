@@ -3,11 +3,15 @@ from __future__ import annotations
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
+from .agent_runtime import CodexCliRuntime
 from .detector import DriftDetector, DriftFinding, FindingSeverity
 from .models import (
     AgentCheckpoint,
     AgentRole,
+    AgentRunRecord,
+    AgentRunStatus,
     AgentTaskPacket,
     DelegationContract,
     EscalationDecision,
@@ -68,11 +72,18 @@ class ProtocolEngine:
         execution_workspace = Path(str(workspace)).expanduser().resolve()
         git = GitWorkspace(execution_workspace)
         workspace_head = git.head()
-        if workspace_head != contract.base_commit:
+        attempt = int(execution.get("attempt", 1))
+        if attempt == 1 and workspace_head != contract.base_commit:
             raise ValueError("dispatch workspace HEAD does not match the contract base commit")
+        if attempt > 1 and not git.is_ancestor(contract.base_commit, workspace_head):
+            raise ValueError("retry workspace no longer descends from the contract base commit")
         workspace_status = git.status_porcelain()
-        if workspace_status:
+        if workspace_status and attempt == 1:
             raise ValueError("dispatch workspace must be clean")
+        if workspace_status and attempt > 1:
+            checkpoint = self.store.latest_checkpoint(contract_id)
+            if checkpoint["current_commit"] != workspace_head or tuple(checkpoint.get("workspace_status", ())) != workspace_status:
+                raise ValueError("retry workspace differs from the latest checkpoint")
         packet = AgentTaskPacket(
             mission_id=mission.mission_id,
             root_objective=mission.objective,
@@ -80,11 +91,14 @@ class ProtocolEngine:
             root_decisions=mission.decisions,
             contract_id=contract.contract_id,
             contract_version=contract.version,
+            attempt=attempt,
             agent_id=str(execution["agent_id"]),
             role=AgentRole(str(execution["role"])),
             parent_id=contract.parent_id,
             workspace=str(execution_workspace),
             base_commit=contract.base_commit,
+            workspace_commit=workspace_head,
+            workspace_status=workspace_status,
             objective=contract.objective,
             global_constraints=mission.global_constraints,
             in_scope=contract.in_scope,
@@ -104,6 +118,166 @@ class ProtocolEngine:
         )
         validate_payload("dispatch", packet.to_dict())
         return self.store.save_dispatch(packet.to_dict())
+
+    def run_codex_agent(
+        self,
+        contract_id: str,
+        *,
+        authorized_by_root: bool,
+        model: str | None = None,
+        timeout_seconds: float = 3600,
+        resume_previous: bool = False,
+        runtime: CodexCliRuntime | None = None,
+    ) -> dict[str, Any]:
+        if not authorized_by_root:
+            raise PermissionError("starting an external Codex run requires explicit Root authorization")
+        execution = self.store.read_execution(contract_id)
+        if execution["status"] != HandoffStatus.PLANNED.value:
+            raise ValueError("Codex agent launch requires planned state")
+        packet = self.create_agent_task_packet(contract_id)
+        runtime_adapter = runtime or CodexCliRuntime()
+        resume_thread_id = None
+        if resume_previous:
+            previous = self.store.latest_agent_run(contract_id)
+            resume_thread_id = previous.get("thread_id")
+            if not resume_thread_id:
+                raise ValueError("previous run has no resumable Codex thread id")
+        run_id = f"run_{uuid4().hex[:12]}"
+        artifact_root = self.store.control / "run-artifacts" / run_id
+        final_path = artifact_root / "final-message.txt"
+        command = runtime_adapter.build_command(
+            Path(str(packet["workspace"])),
+            final_path,
+            model=model,
+            resume_thread_id=resume_thread_id,
+        )
+        running = AgentRunRecord(
+            run_id=run_id,
+            contract_id=contract_id,
+            contract_version=int(packet["contract_version"]),
+            attempt=int(packet["attempt"]),
+            agent_id=str(packet["agent_id"]),
+            runtime="codex_cli",
+            status=AgentRunStatus.RUNNING,
+            command=tuple(command),
+            thread_id=resume_thread_id,
+            event_log=str(artifact_root / "events.jsonl"),
+            final_message_path=str(final_path),
+        )
+        self.store.save_agent_run(running.to_dict())
+        self.transition(contract_id, HandoffStatus.CLAIMED.value)
+        self.transition(contract_id, HandoffStatus.EXECUTING.value)
+        try:
+            result = runtime_adapter.execute(
+                packet,
+                artifact_root,
+                timeout_seconds=timeout_seconds,
+                model=model,
+                resume_thread_id=resume_thread_id,
+            )
+        except Exception as exc:
+            error = f"{type(exc).__name__}: {exc}"[-2000:]
+            stored = self.store.update_agent_run(
+                run_id,
+                {"status": AgentRunStatus.FAILED.value, "returncode": 1, "error": error},
+            )
+            self.transition(contract_id, HandoffStatus.PARTIAL.value)
+            self.record_agent_checkpoint(
+                contract_id,
+                completed=(),
+                pending=("resume or retry the assigned task",),
+                blockers=(error,),
+                notes=(f"runtime run {run_id} raised before completion",),
+            )
+            return {"run": stored, "execution": self.store.read_execution(contract_id)}
+        stored = self.store.update_agent_run(
+            run_id,
+            {
+                "status": result.status,
+                "returncode": result.returncode,
+                "thread_id": result.thread_id,
+                "event_log": result.event_log,
+                "final_message_path": result.final_message_path,
+                "final_message": result.final_message,
+                "error": result.error,
+                "usage": result.usage,
+            },
+        )
+        if result.status == AgentRunStatus.SUCCEEDED.value:
+            self.transition(contract_id, HandoffStatus.REPORTING.value)
+        else:
+            self.transition(contract_id, HandoffStatus.PARTIAL.value)
+            self.record_agent_checkpoint(
+                contract_id,
+                completed=(),
+                pending=("resume or retry the assigned task",),
+                blockers=((result.error or f"Codex CLI exited with {result.returncode}")[-2000:],),
+                notes=(f"runtime run {run_id} failed",),
+            )
+        return {"run": stored, "execution": self.store.read_execution(contract_id)}
+
+    def retry_execution(self, contract_id: str, *, reason: str) -> dict[str, Any]:
+        if not reason.strip():
+            raise ValueError("retry reason is required")
+        execution = self.store.read_execution(contract_id)
+        state = HandoffStatus(str(execution["status"]))
+        if state not in {HandoffStatus.PARTIAL, HandoffStatus.REJECTED}:
+            raise ValueError("retry requires partial or rejected state")
+        contract = DelegationContract.from_dict(self.store.read_contract(contract_id))
+        if contract.base_commit != self.workspace.head():
+            raise ValueError("parent HEAD changed; escalate and revise the contract instead of retrying")
+        workspace = execution.get("workspace")
+        if not workspace:
+            raise ValueError("retry requires the assigned workspace")
+        git = GitWorkspace(Path(str(workspace)).expanduser().resolve())
+        head = git.head()
+        attempt = int(execution.get("attempt", 1))
+        if attempt >= self._policy().max_agent_attempts:
+            raise ValueError("maximum agent attempts reached; escalate or reject the contract")
+        if state == HandoffStatus.PARTIAL:
+            checkpoint = self.store.latest_checkpoint(contract_id, attempt=attempt)
+            if checkpoint["current_commit"] != head:
+                raise ValueError("workspace HEAD changed after the failure checkpoint")
+        elif git.status_porcelain():
+            raise ValueError("rejected worktree must be clean before retry")
+        execution.update(
+            status=HandoffStatus.PLANNED.value,
+            attempt=attempt + 1,
+            current_commit=head,
+            history=[*execution.get("history", []), HandoffStatus.PLANNED.value],
+        )
+        self.store.save_execution(execution, replace=True)
+        self.store.append_event(
+            "execution_retry_planned",
+            {"contract_id": contract_id, "attempt": attempt + 1, "reason": reason},
+        )
+        return execution
+
+    def cleanup_workspace(self, contract_id: str, *, confirmed_by_root: bool) -> dict[str, Any]:
+        if not confirmed_by_root:
+            raise PermissionError("worktree cleanup requires explicit Root confirmation")
+        execution = self.store.read_execution(contract_id)
+        state = HandoffStatus(str(execution["status"]))
+        if state not in {HandoffStatus.INTEGRATED, HandoffStatus.REJECTED}:
+            raise ValueError("worktree cleanup requires integrated or rejected state")
+        workspace = execution.get("workspace")
+        if not workspace:
+            return {"contract_id": contract_id, "cleaned": False, "reason": "no assigned workspace"}
+        target = Path(str(workspace)).expanduser().resolve()
+        if target == self.store.workspace:
+            raise ValueError("refusing to remove the root project workspace")
+        if not target.is_dir():
+            raise FileNotFoundError(f"assigned worktree does not exist: {target}")
+        git = GitWorkspace(target)
+        if git.status_porcelain():
+            raise ValueError("refusing to remove a worktree with uncommitted changes")
+        if not self.workspace.is_registered_worktree(target):
+            raise ValueError("assigned workspace is not a registered Git worktree")
+        self.workspace.remove_worktree(target)
+        execution["workspace"] = None
+        self.store.save_execution(execution, replace=True)
+        self.store.append_event("workspace_cleaned", {"contract_id": contract_id, "workspace": str(target)})
+        return {"contract_id": contract_id, "cleaned": True, "workspace": str(target)}
 
     def record_agent_checkpoint(
         self,
@@ -131,6 +305,7 @@ class ProtocolEngine:
         checkpoint = AgentCheckpoint(
             contract_id=contract.contract_id,
             contract_version=contract.version,
+            attempt=int(execution.get("attempt", 1)),
             agent_id=str(execution["agent_id"]),
             status=state,
             current_commit=git.head(),
@@ -250,11 +425,18 @@ class ProtocolEngine:
             checkpoint = None
             try:
                 verification = self.store.latest_verification(str(execution["contract_id"]))
-                findings = [str(item["code"]) for item in verification.get("findings", []) if item.get("severity") == "block"]
+                if int(verification.get("attempt", 1)) == int(execution.get("attempt", 1)):
+                    findings = [
+                        str(item["code"])
+                        for item in verification.get("findings", [])
+                        if item.get("severity") == "block"
+                    ]
             except FileNotFoundError:
                 pass
             try:
-                checkpoint = self.store.latest_checkpoint(str(execution["contract_id"]))
+                checkpoint = self.store.latest_checkpoint(
+                    str(execution["contract_id"]), attempt=int(execution.get("attempt", 1))
+                )
             except FileNotFoundError:
                 pass
             stale = state not in {HandoffStatus.INTEGRATED, HandoffStatus.REJECTED} and contract["base_commit"] != current_head
@@ -297,14 +479,24 @@ class ProtocolEngine:
             contract_id = str(execution["contract_id"])
             contract = self.store.read_contract(contract_id)
             try:
-                checkpoint = self.store.latest_checkpoint(contract_id)
+                checkpoint = self.store.latest_checkpoint(contract_id, attempt=int(execution.get("attempt", 1)))
             except FileNotFoundError:
                 checkpoint = None
             try:
+                latest_run = self.store.latest_agent_run(contract_id)
+            except FileNotFoundError:
+                latest_run = None
+            try:
                 verification = self.store.latest_verification(contract_id)
-                findings = [
-                    item for item in verification.get("findings", []) if item.get("severity") == FindingSeverity.BLOCK.value
-                ]
+                findings = (
+                    [
+                        item
+                        for item in verification.get("findings", [])
+                        if item.get("severity") == FindingSeverity.BLOCK.value
+                    ]
+                    if int(verification.get("attempt", 1)) == int(execution.get("attempt", 1))
+                    else []
+                )
             except FileNotFoundError:
                 verification = None
                 findings = []
@@ -321,6 +513,7 @@ class ProtocolEngine:
                     "status": execution["status"],
                     "workspace": execution.get("workspace"),
                     "latest_checkpoint": checkpoint,
+                    "latest_agent_run": latest_run,
                     "latest_verification": None
                     if verification is None
                     else {
@@ -343,6 +536,7 @@ class ProtocolEngine:
                 "contract_count": status["contract_count"],
                 "dispatch_count": status["dispatch_count"],
                 "checkpoint_count": status["checkpoint_count"],
+                "agent_run_count": status["agent_run_count"],
                 "verification_count": status["verification_count"],
                 "integration_count": status["integration_count"],
                 "blocking_finding_count": blocking_finding_count,
@@ -409,6 +603,7 @@ class ProtocolEngine:
             "workspace": workspace,
             "current_commit": model.base_commit,
             "history": [HandoffStatus.PLANNED.value],
+            "attempt": 1,
         }
         self.store.save_execution(execution)
         self.store.append_event(
@@ -494,6 +689,7 @@ class ProtocolEngine:
             "repository_evidence": self._evidence_dict(evidence[0]),
             "integration_authorized": mergeable,
             "integrated": False,
+            "attempt": int(execution.get("attempt", 1)),
         }
         self.store.record_verification(receipt_model.to_dict(), verification)
         self.transition(contract_id, HandoffStatus.VERIFIED.value if mergeable else HandoffStatus.REJECTED.value)
@@ -589,7 +785,12 @@ class ProtocolEngine:
             raise ValueError("revised contract must use current parent HEAD")
         self.store.save_contract(model.to_dict())
         execution = self.store.read_execution(model.contract_id)
-        execution.update(status=HandoffStatus.PLANNED.value, current_commit=model.base_commit, history=[HandoffStatus.PLANNED.value])
+        execution.update(
+            status=HandoffStatus.PLANNED.value,
+            current_commit=model.base_commit,
+            attempt=int(execution.get("attempt", 1)) + 1,
+            history=[HandoffStatus.PLANNED.value],
+        )
         self.store.save_execution(execution, replace=True)
         self.store.append_event(
             "contract_revised",

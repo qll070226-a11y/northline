@@ -22,6 +22,7 @@ Ship a useful Codex Skill and Plugin that reduce long-task drift in everyday rep
 - `0.3.0`: unified protocol engine, automatic Git diff/test evidence, persistent execution/escalation state, worktree preparation, and explicit parent integration recording.
 - `0.4.0`: ergonomic contract/receipt generation, actionable resume summaries, configurable policies, and five-path forward workflow coverage.
 - `0.5.0`: schema migration, persisted Worker/Leaf dispatch packets, Git-backed interruption checkpoints, and delegation trace reports.
+- `0.6.0`: explicitly authorized Codex CLI execution, persisted runtime evidence, bounded retry, and safe terminal worktree cleanup.
 - `1.0.0`: independently forward-tested workflows, cross-platform installer, and measured product evaluation.
 
 ## Secondary research track
