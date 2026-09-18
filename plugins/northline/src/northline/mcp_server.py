@@ -78,8 +78,42 @@ def create_server():
         return {"safe": result.safe, "reasons": list(result.reasons)}
 
     @server.tool(description="Initialize a repository-local .northline mission. Existing missions require explicit overwrite.")
-    def initialize_project(workspace: str, mission: dict[str, Any], overwrite: bool = False) -> dict[str, Any]:
-        return ProtocolEngine(workspace).initialize(mission, overwrite=overwrite)
+    def initialize_project(
+        workspace: str,
+        mission: dict[str, Any],
+        policy: dict[str, Any] | None = None,
+        overwrite: bool = False,
+    ) -> dict[str, Any]:
+        return ProtocolEngine(workspace).initialize(mission, policy=policy, overwrite=overwrite)
+
+    @server.tool(description="Draft a complete contract from Root-authored scope while filling mission id and current parent HEAD.")
+    def draft_project_contract(
+        workspace: str,
+        objective: str,
+        in_scope: list[str],
+        allowed_files: list[str],
+        acceptance_criteria: list[str],
+        required_tests: list[str],
+        out_of_scope: list[str] | None = None,
+        forbidden_files: list[str] | None = None,
+        parent_id: str = "root",
+        dependencies: list[str] | None = None,
+        deadline_or_budget: str | None = None,
+        contract_id: str | None = None,
+    ) -> dict[str, Any]:
+        return ProtocolEngine(workspace).draft_contract(
+            objective=objective,
+            in_scope=tuple(in_scope),
+            out_of_scope=tuple(out_of_scope or ()),
+            allowed_files=tuple(allowed_files),
+            forbidden_files=tuple(forbidden_files or ()),
+            acceptance_criteria=tuple(acceptance_criteria),
+            required_tests=tuple(required_tests),
+            parent_id=parent_id,
+            dependencies=tuple(dependencies or ()),
+            deadline_or_budget=deadline_or_budget,
+            contract_id=contract_id,
+        )
 
     @server.tool(description="Persist a contract and assign it to a bounded Worker or Leaf execution.")
     def delegate_project_task(
@@ -107,6 +141,35 @@ def create_server():
     @server.tool(description="Return mission and verification counts without exposing receipt contents.")
     def get_project_status(workspace: str) -> dict[str, Any]:
         return ProtocolEngine(workspace).status()
+
+    @server.tool(description="Return actionable resume state for every delegated execution, including stale and blocked work.")
+    def get_project_resume(workspace: str) -> dict[str, Any]:
+        return ProtocolEngine(workspace).resume_summary()
+
+    @server.tool(description="Draft a receipt from the assigned worktree's observed commit, diff, and freshly executed tests.")
+    def draft_project_receipt(
+        workspace: str,
+        contract_id: str,
+        diff_summary: str,
+        acceptance_evidence: dict[str, str],
+        assumptions: list[str] | None = None,
+        risks: list[str] | None = None,
+        unresolved_questions: list[str] | None = None,
+        evidence_links: list[str] | None = None,
+        evidence_workspace: str | None = None,
+        test_timeout_seconds: float = 600,
+    ) -> dict[str, Any]:
+        return ProtocolEngine(workspace).draft_receipt(
+            contract_id,
+            diff_summary=diff_summary,
+            acceptance_evidence=acceptance_evidence,
+            assumptions=tuple(assumptions or ()),
+            risks=tuple(risks or ()),
+            unresolved_questions=tuple(unresolved_questions or ()),
+            evidence_links=tuple(evidence_links or ()),
+            evidence_workspace=evidence_workspace,
+            test_timeout_seconds=test_timeout_seconds,
+        )
 
     @server.tool(description="Rebuild Git and test evidence, then verify and record a handoff without integrating source files.")
     def verify_project_handoff(

@@ -9,13 +9,15 @@ Protect the user's root objective across long implementation and debugging chain
 
 ## Start or resume
 
-For a substantial task, inspect project status with `get_project_status`. If no mission exists, initialize one with `initialize_project`, preserving the user's objective, constraints, acceptance criteria, current commit, maximum depth 2, and at most 4 children per parent. If a mission exists, resume it rather than silently replacing it.
+For a substantial task, inspect actionable state with `get_project_resume`. If no mission exists, initialize one with `initialize_project`, preserving the user's objective, constraints, acceptance criteria, current commit, maximum depth 2, at most 4 children per parent, and the default strict policy. If a mission exists, follow its recommended actions rather than silently replacing it.
+
+Do not relax isolation, clean-evidence, required-test, changed-file, or timeout policies unless the user or Root explicitly accepts that tradeoff.
 
 Do not create delegation overhead for a small task that one agent can complete directly.
 
 ## Delegate
 
-Delegate only work that is independently executable or benefits from separate context. Before a child starts, create and persist a `DelegationContract` with:
+Delegate only work that is independently executable or benefits from separate context. Use `draft_project_contract` to fill the active mission id and observed parent HEAD, then Root must review its scope before `delegate_project_task` persists it. The contract must contain:
 
 - one local objective tied to the root objective;
 - explicit in-scope and out-of-scope behavior;
@@ -29,7 +31,7 @@ Use `check_parallel_safety` before parallel work. File disjointness alone is ins
 
 ## Receive and verify
 
-Require a `HandoffReceipt` in `reporting` state. It must disclose result commit, changed files, diff summary, exact tests and results, criterion-to-evidence mappings, assumptions, risks, unresolved questions, and contract version.
+Require a `HandoffReceipt` in `reporting` state. Prefer `draft_project_receipt`: it reads the assigned worktree's real result commit and changed files and reruns contract tests. The child must still provide the diff summary, criterion-to-evidence mappings, assumptions, risks, and unresolved questions; never invent semantic acceptance evidence.
 
 Call `verify_project_handoff` with the child's evidence worktree. Northline rebuilds Git ancestry, changed-file, HEAD, and required-test evidence instead of trusting the receipt. Treat every deterministic `block` finding as non-overridable. A mergeable result enters `verified`; it does not mean the source was integrated. Root must still inspect the diff, integrate the result commit, and call `record_project_integration`, which observes parent HEAD and reruns integration tests before entering `integrated`.
 

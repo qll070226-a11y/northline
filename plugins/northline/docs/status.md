@@ -10,6 +10,7 @@ Primary delivery changed on 2026-09-14: the Codex Skill and Plugin are now the p
 - Parent-rebuilt Git ancestry, exact changed-file, workspace-HEAD, and required-test evidence
 - Explicit `VERIFIED` versus `INTEGRATED` gates, including post-integration test execution
 - Persistent execution, contract history, escalation, decision, integration, and isolated-worktree records
+- Product v0.4 contract/receipt drafting, actionable resume summaries, and repository policy enforcement
 - Framework-neutral protocol types, bounded Root/Worker/Leaf runtime, and Draft 2020-12 schemas
 - Deterministic identity, version, commit, path, test, criterion, dependency, and unresolved-question gates
 - Stop-work escalation, contract revision, stale-receipt rejection, append-only event replay, and Git worktree isolation
@@ -42,7 +43,7 @@ Primary delivery changed on 2026-09-14: the Codex Skill and Plugin are now the p
 
 ## Verified locally
 
-- 73 tests pass across the protocol, persistent engine, CLI/MCP, real Git worktrees, research runner, controlled tasks, review gates, and statistics
+- 78 tests pass across the protocol, persistent engine, CLI/MCP, real Git worktrees, product forward workflows, research runner, controlled tasks, review gates, and statistics
 - Protocol-engine integration tests cover real commits, detached worktrees, false file claims, false passing-test claims, assigned-workspace enforcement, and integration ancestry
 - Ruff syntax, symbol, and import checks pass
 - Official Skill and Plugin validators pass
@@ -80,7 +81,7 @@ The 32-task blueprint audit currently blocks expansion because only the eight-ta
 
 ## Next product milestone
 
-Forward-test the Skill in fresh Codex tasks, add ergonomic contract and receipt generation, improve resume summaries, and define migration behavior for `.northline/` state. The product remains the primary delivery; the research pipeline below supplies evidence rather than blocking ordinary releases.
+Forward-test the updated Skill in fresh Codex tasks, define migration behavior for future `.northline/` schema changes, and measure usability overhead from contracts and evidence rebuilding. The product remains the primary delivery; the research pipeline below supplies evidence rather than blocking ordinary releases.
 
 ## Next research milestone
 

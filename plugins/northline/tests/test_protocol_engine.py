@@ -5,7 +5,15 @@ from pathlib import Path
 import pytest
 
 from northline.engine import ProtocolEngine
-from northline.models import DelegationContract, HandoffReceipt, HandoffStatus, MissionState
+from northline.models import (
+    DelegationContract,
+    EscalationKind,
+    EscalationRequest,
+    HandoffReceipt,
+    HandoffStatus,
+    MissionState,
+    ProtocolPolicy,
+)
 from northline.workspace import GitWorkspace
 
 
@@ -143,6 +151,37 @@ def test_engine_rebuilds_evidence_and_separates_verification_from_integration(tm
     assert resumed.status()["execution_states"] == {"integrated": 1}
 
 
+def test_engine_drafts_contract_and_receipt_from_observed_repository_state(tmp_path: Path):
+    repo, child, base, result = make_repository(tmp_path)
+    engine = ProtocolEngine(repo)
+    mission = MissionState("mission_draft", "draft trustworthy artifacts", root_commit=base)
+    engine.initialize(mission.to_dict())
+    contract_data = engine.draft_contract(
+        objective="fix app",
+        in_scope=("application",),
+        out_of_scope=("configuration",),
+        allowed_files=("src/**/*.py",),
+        forbidden_files=("pyproject.toml",),
+        acceptance_criteria=("app is fixed",),
+        required_tests=("git status --porcelain",),
+        contract_id="contract_draft",
+    )
+    assert contract_data["base_commit"] == base
+    assert contract_data["mission_id"] == mission.mission_id
+    engine.delegate(contract_data, agent_id="worker_draft", role="worker", workspace=str(child))
+    for state in ("claimed", "executing", "reporting"):
+        engine.transition("contract_draft", state)
+    receipt_data = engine.draft_receipt(
+        "contract_draft",
+        diff_summary="fixed app",
+        acceptance_evidence={"app is fixed": "required test passed"},
+    )
+    assert receipt_data["result_commit"] == result
+    assert receipt_data["changed_files"] == ["src/app.py"]
+    assert receipt_data["test_results"] == ["pass"]
+    assert receipt_data["agent_id"] == "worker_draft"
+
+
 def test_engine_blocks_receipt_that_disagrees_with_git(tmp_path: Path):
     repo, child, base, result = make_repository(tmp_path)
     engine, contract = prepare_engine(repo, child, base)
@@ -155,6 +194,8 @@ def test_engine_blocks_receipt_that_disagrees_with_git(tmp_path: Path):
     assert "CHANGED_FILES_MISMATCH" in codes
     assert verification["mergeable"] is False
     assert engine.status()["execution_states"] == {"rejected": 1}
+    recovery = engine.resume_summary()
+    assert "CHANGED_FILES_MISMATCH" in recovery["executions"][0]["blocking_findings"]
 
 
 def test_engine_rejects_unassigned_evidence_workspace(tmp_path: Path):
@@ -209,3 +250,123 @@ def test_engine_blocks_system_test_failure(tmp_path: Path):
     )
     codes = {item["code"] for item in verification["findings"]}
     assert {"SYSTEM_TEST_FAILED", "TEST_CLAIM_CONTRADICTED"}.issubset(codes)
+
+
+def test_engine_blocks_dirty_evidence_workspace_by_policy(tmp_path: Path):
+    repo, child, base, result = make_repository(tmp_path)
+    engine, contract = prepare_engine(repo, child, base)
+    (child / "src" / "app.py").write_text("uncommitted\n", encoding="utf-8")
+    verification = engine.verify_handoff(
+        contract.contract_id,
+        receipt(contract, result, ("src/app.py",)).to_dict(),
+        evidence_workspace=child,
+    )
+    assert "DIRTY_EVIDENCE_WORKSPACE" in {item["code"] for item in verification["findings"]}
+
+
+def test_engine_blocks_change_count_above_policy_limit(tmp_path: Path):
+    repo, child, base, _ = make_repository(tmp_path)
+    extra = child / "src" / "extra.py"
+    extra.write_text("extra\n", encoding="utf-8")
+    git(child, "add", ".")
+    git(child, "commit", "-q", "-m", "add extra file")
+    result = git(child, "rev-parse", "HEAD")
+
+    engine = ProtocolEngine(repo)
+    mission = MissionState("mission_change_limit", "limit change size", root_commit=base)
+    engine.initialize(mission.to_dict(), policy=ProtocolPolicy(max_changed_files=1).to_dict())
+    contract = DelegationContract(
+        contract_id="contract_change_limit",
+        objective="fix app with helper",
+        in_scope=("application implementation",),
+        out_of_scope=(),
+        allowed_files=("src/**/*.py",),
+        forbidden_files=(),
+        acceptance_criteria=("repository is clean",),
+        required_tests=("git status --porcelain",),
+        base_commit=base,
+        parent_id="root",
+        mission_id=mission.mission_id,
+    )
+    engine.delegate(contract.to_dict(), agent_id="worker_001", role="worker", workspace=str(child))
+    for state in ("claimed", "executing", "reporting"):
+        engine.transition(contract.contract_id, state)
+    verification = engine.verify_handoff(
+        contract.contract_id,
+        receipt(contract, result, ("src/app.py", "src/extra.py")).to_dict(),
+        evidence_workspace=child,
+    )
+    assert "CHANGE_LIMIT_EXCEEDED" in {item["code"] for item in verification["findings"]}
+
+
+def test_engine_policy_requires_contract_tests(tmp_path: Path):
+    repo, _, base, _ = make_repository(tmp_path)
+    engine = ProtocolEngine(repo)
+    engine.initialize(MissionState("mission_policy", "enforce tests", root_commit=base).to_dict())
+    with pytest.raises(ValueError, match="requires at least one"):
+        engine.draft_contract(
+            objective="untested change",
+            in_scope=("app",),
+            out_of_scope=(),
+            allowed_files=("src/**/*.py",),
+            forbidden_files=(),
+            acceptance_criteria=("works",),
+            required_tests=(),
+        )
+
+
+def test_engine_blocks_stale_parent_head(tmp_path: Path):
+    repo, child, base, result = make_repository(tmp_path)
+    engine, contract = prepare_engine(repo, child, base)
+    (repo / "parent.txt").write_text("advanced\n", encoding="utf-8")
+    git(repo, "add", "parent.txt")
+    git(repo, "commit", "-q", "-m", "parent advance")
+    verification = engine.verify_handoff(
+        contract.contract_id,
+        receipt(contract, result, ("src/app.py",)).to_dict(),
+        evidence_workspace=child,
+    )
+    assert "STALE_BASE" in {item["code"] for item in verification["findings"]}
+
+
+def test_persistent_escalation_revision_rebases_contract_on_parent_head(tmp_path: Path):
+    repo, child, base, _ = make_repository(tmp_path)
+    engine = ProtocolEngine(repo)
+    mission = MissionState("mission_escalation", "keep work current", root_commit=base)
+    engine.initialize(mission.to_dict(), policy=ProtocolPolicy().to_dict())
+    contract_data = engine.draft_contract(
+        objective="fix app",
+        in_scope=("app",),
+        out_of_scope=(),
+        allowed_files=("src/**/*.py",),
+        forbidden_files=(),
+        acceptance_criteria=("tests pass",),
+        required_tests=("git status --porcelain",),
+        contract_id="contract_escalation",
+    )
+    engine.delegate(contract_data, agent_id="worker_escalation", role="worker", workspace=str(child))
+    engine.transition("contract_escalation", "claimed")
+    engine.transition("contract_escalation", "executing")
+    (repo / "parent.txt").write_text("advanced\n", encoding="utf-8")
+    git(repo, "add", "parent.txt")
+    git(repo, "commit", "-q", "-m", "parent advance")
+    parent_head = git(repo, "rev-parse", "HEAD")
+    request = EscalationRequest(
+        contract_id="contract_escalation",
+        contract_version=1,
+        agent_id="worker_escalation",
+        kinds=(EscalationKind.STALE_STATE,),
+        contract_base_commit=base,
+        workspace_merge_base=base,
+        parent_head=parent_head,
+        blocking_evidence=("parent HEAD advanced",),
+        requested_changes={"base_commit": parent_head},
+        request_id="escalation_forward",
+    )
+    execution = engine.submit_escalation(request.to_dict())
+    assert execution["status"] == "needs_parent_decision"
+    engine.decide_escalation(request.request_id, approved=True, rationale="rebase on current parent")
+    revised = {**contract_data, "version": 2, "base_commit": parent_head}
+    restarted = engine.revise_contract(request.request_id, revised)
+    assert restarted["status"] == "planned"
+    assert engine.store.read_contract("contract_escalation")["version"] == 2

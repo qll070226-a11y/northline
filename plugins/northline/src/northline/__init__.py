@@ -1,6 +1,6 @@
 """Verifiable recursive delegation protocol."""
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 from .detector import DriftDetector, DriftFinding, FindingSeverity
 from .engine import ProtocolEngine
@@ -15,6 +15,7 @@ from .models import (
     HandoffReceipt,
     HandoffStatus,
     MissionState,
+    ProtocolPolicy,
 )
 from .schema import protocol_schema, validate_payload
 from .scope import ParallelSafety, assess_parallel_safety
@@ -36,6 +37,7 @@ __all__ = [
     "HandoffStateMachine",
     "HandoffStatus",
     "MissionState",
+    "ProtocolPolicy",
     "protocol_schema",
     "validate_payload",
     "ParallelSafety",

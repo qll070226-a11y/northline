@@ -12,6 +12,7 @@ from northline.models import (
     HandoffReceipt,
     HandoffStatus,
     MissionState,
+    ProtocolPolicy,
 )
 from northline.schema import validate_payload
 
@@ -39,6 +40,7 @@ class InterfaceTests(unittest.TestCase):
         validate_payload("mission", mission)
         validate_payload("contract", contract)
         validate_payload("receipt", receipt)
+        validate_payload("policy", ProtocolPolicy().to_dict())
         escalation = EscalationRequest(
             contract_id=contract["contract_id"], contract_version=1, agent_id="worker_001",
             kinds=(EscalationKind.STALE_STATE,), contract_base_commit="base",
@@ -67,10 +69,13 @@ class InterfaceTests(unittest.TestCase):
                 "check_transition",
                 "check_parallel_safety",
                 "initialize_project",
+                "draft_project_contract",
                 "delegate_project_task",
                 "prepare_project_workspace",
                 "transition_project_handoff",
                 "get_project_status",
+                "get_project_resume",
+                "draft_project_receipt",
                 "verify_project_handoff",
                 "record_project_integration",
                 "submit_project_escalation",

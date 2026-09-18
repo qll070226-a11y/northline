@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .models import ProtocolPolicy
 from .schema import validate_payload
 
 
@@ -22,8 +23,20 @@ class ProjectStore:
     def mission_path(self) -> Path:
         return self.control / "mission.json"
 
-    def initialize(self, mission: dict[str, Any], *, overwrite: bool = False) -> dict[str, Any]:
+    @property
+    def policy_path(self) -> Path:
+        return self.control / "policy.json"
+
+    def initialize(
+        self,
+        mission: dict[str, Any],
+        *,
+        policy: dict[str, Any] | None = None,
+        overwrite: bool = False,
+    ) -> dict[str, Any]:
         validate_payload("mission", mission)
+        policy_payload = ProtocolPolicy.from_dict(policy).to_dict()
+        validate_payload("policy", policy_payload)
         if self.mission_path.exists() and not overwrite:
             raise FileExistsError("mission already exists; explicit overwrite is required")
         if self.mission_path.exists() and overwrite:
@@ -31,6 +44,7 @@ class ProjectStore:
             if any(self._json_files(directory) for directory in artifact_directories):
                 raise ValueError("cannot overwrite a mission with active protocol artifacts")
         self._write_json(self.mission_path, mission)
+        self._write_json(self.policy_path, policy_payload)
         for directory in (
             "contracts",
             "contract-history",
@@ -42,8 +56,15 @@ class ProjectStore:
             "integrations",
         ):
             (self.control / directory).mkdir(parents=True, exist_ok=True)
-        self._append_event("mission_initialized", {"mission_id": mission["mission_id"]})
+        self._append_event("mission_initialized", {"mission_id": mission["mission_id"], "policy": policy_payload})
         return self.status()
+
+    def read_policy(self) -> dict[str, Any]:
+        if not self.policy_path.is_file():
+            return ProtocolPolicy().to_dict()
+        policy = self._read_json(self.policy_path)
+        validate_payload("policy", policy)
+        return policy
 
     def save_contract(self, contract: dict[str, Any]) -> dict[str, Any]:
         mission = self._require_mission()
@@ -188,6 +209,7 @@ class ProjectStore:
             "initialized": mission is not None,
             "workspace": str(self.workspace),
             "mission": mission,
+            "policy": self.read_policy(),
             "contract_count": len(contracts),
             "receipt_count": len(self._json_files("receipts")),
             "verification_count": len(verifications),

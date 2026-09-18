@@ -26,6 +26,8 @@ class RepositoryEvidence:
     base_exists: bool
     result_exists: bool
     result_descends_from_base: bool
+    workspace_clean: bool
+    workspace_status: tuple[str, ...]
     changed_files: tuple[str, ...]
     tests: tuple[TestEvidence, ...]
 
@@ -71,6 +73,10 @@ class GitWorkspace:
         output = self._run("diff", "--name-only", base_commit, result_commit)
         return tuple(line.replace("\\", "/") for line in output.splitlines() if line)
 
+    def status_porcelain(self) -> tuple[str, ...]:
+        output = self._run("status", "--porcelain")
+        return tuple(line for line in output.splitlines() if line)
+
     def run_tests(self, command: str, *, timeout_seconds: float = 600) -> tuple[bool, str]:
         process = subprocess.run(
             command,
@@ -96,6 +102,7 @@ class GitWorkspace:
         result_exists = self.commit_exists(result_commit)
         descends = base_exists and result_exists and self.is_ancestor(base_commit, result_commit)
         files = self.changed_files_between(base_commit, result_commit) if base_exists and result_exists else ()
+        workspace_status = self.status_porcelain()
         tests: list[TestEvidence] = []
         for command in required_tests:
             try:
@@ -111,6 +118,8 @@ class GitWorkspace:
             base_exists=base_exists,
             result_exists=result_exists,
             result_descends_from_base=descends,
+            workspace_clean=not workspace_status,
+            workspace_status=workspace_status,
             changed_files=files,
             tests=tuple(tests),
         )

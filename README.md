@@ -103,6 +103,8 @@ northline status --workspace .
 | --- | --- |
 | `initialize_project` | 初始化仓库级 MissionState |
 | `get_project_status` | 恢复当前任务主线和阻断状态 |
+| `get_project_resume` | 返回委派树、过期状态、阻断原因和推荐动作 |
+| `draft_project_contract` | 自动填充 mission、父 HEAD、版本和契约 ID |
 | `delegate_project_task` | 保存契约并分配有界 Worker/Leaf 执行 |
 | `prepare_project_workspace` | 在契约基线创建隔离 Git worktree |
 | `transition_project_handoff` | 持久化合法状态转换 |
@@ -110,6 +112,7 @@ northline status --workspace .
 | `validate_handoff` | 无状态预检 HandoffReceipt |
 | `check_transition` | 验证协议状态转换是否合法 |
 | `verify_project_handoff` | 重建 Git/测试证据并记录交接，不集成代码 |
+| `draft_project_receipt` | 从分配 worktree 生成真实 commit、diff 和测试字段 |
 | `record_project_integration` | 确认父 HEAD 包含结果并复测后记录集成 |
 | `submit_project_escalation` | 保存停止工作的升级请求 |
 | `decide_project_escalation` | 保存 Root/用户对升级请求的决定 |
@@ -120,6 +123,7 @@ northline status --workspace .
 ```text
 .northline/
 |-- mission.json
+|-- policy.json
 |-- contracts/*.json
 |-- contract-history/*/v*.json
 |-- executions/*.json

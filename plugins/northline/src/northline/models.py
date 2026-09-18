@@ -87,6 +87,40 @@ class MissionState:
 
 
 @dataclass(frozen=True)
+class ProtocolPolicy:
+    require_isolated_workspace: bool = True
+    require_clean_evidence_workspace: bool = True
+    require_required_tests: bool = True
+    max_changed_files: int = 200
+    max_test_timeout_seconds: float = 600
+    version: int = 1
+
+    def __post_init__(self) -> None:
+        if self.version != 1:
+            raise ValueError("unsupported policy version")
+        if self.max_changed_files < 1:
+            raise ValueError("max_changed_files must be positive")
+        if not 1 <= self.max_test_timeout_seconds <= 3600:
+            raise ValueError("max_test_timeout_seconds must be between 1 and 3600")
+
+    def to_dict(self) -> dict[str, Any]:
+        return _json_ready(asdict(self))
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any] | None) -> "ProtocolPolicy":
+        if data is None:
+            return cls()
+        return cls(
+            require_isolated_workspace=bool(data.get("require_isolated_workspace", True)),
+            require_clean_evidence_workspace=bool(data.get("require_clean_evidence_workspace", True)),
+            require_required_tests=bool(data.get("require_required_tests", True)),
+            max_changed_files=int(data.get("max_changed_files", 200)),
+            max_test_timeout_seconds=float(data.get("max_test_timeout_seconds", 600)),
+            version=int(data.get("version", 1)),
+        )
+
+
+@dataclass(frozen=True)
 class DelegationContract:
     objective: str
     in_scope: tuple[str, ...]

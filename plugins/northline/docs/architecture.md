@@ -33,6 +33,7 @@ Defaults are maximum depth 2 and at most 4 children per parent. A child cannot c
 | Object | Purpose | Owner |
 | --- | --- | --- |
 | `MissionState` | Root objective, constraints, acceptance criteria, root commit, limits | User/Root |
+| `ProtocolPolicy` | Isolation, clean-evidence, required-test, change-size, and timeout gates | User/Root |
 | `DelegationContract` | Versioned objective, scope, files, dependencies, tests, base commit | Parent |
 | `ExecutionState` | Agent, role, workspace, current commit, status history | Engine |
 | `HandoffReceipt` | Child's claims about commit, diff, tests, evidence, assumptions, risks | Child |
@@ -69,6 +70,7 @@ Test commands are authority-bearing input from the Root contract and run locally
 ```text
 .northline/
 |-- mission.json
+|-- policy.json
 |-- contracts/<contract-id>.json
 |-- contract-history/<contract-id>/v<n>.json
 |-- executions/<contract-id>.json
@@ -85,11 +87,12 @@ JSON files are written through a temporary file and replaced atomically. `events
 ## Runtime sequence
 
 ```text
-status/init
+resume/init
+    -> draft and review contract
     -> delegate contract
     -> prepare isolated worktree
     -> claimed -> executing
-    -> child commit + receipt
+    -> child commit + evidence-backed receipt draft
     -> reporting
     -> verify in child worktree
     -> Root reviews and integrates Git commit
@@ -108,7 +111,7 @@ Parallel execution is allowed only when file scopes, interfaces, schemas, migrat
 
 OpenHands, SWE-agent, MetaGPT, and ChatDev are reference implementations for execution environments, repository interaction, and role workflows. Northline does not embed their runtimes. This keeps the protocol measurable and lets future adapters use them without changing the trust model.
 
-## v0.3 constraints
+## v0.4 constraints
 
 - Python/Git repositories are the supported execution target.
 - Integration recognition requires the exact verified result commit to be reachable from parent HEAD; squash and cherry-pick equivalence are not inferred.

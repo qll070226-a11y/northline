@@ -62,6 +62,7 @@ def test_project_store_persists_verification_without_integrating(tmp_path: Path)
     assert result["integrated"] is False
     assert status["contract_count"] == 1
     assert status["mergeable_count"] == 1
+    assert status["policy"]["require_clean_evidence_workspace"] is True
     assert source.read_text(encoding="utf-8") == "original\n"
     assert (tmp_path / ".northline" / "events.jsonl").is_file()
 

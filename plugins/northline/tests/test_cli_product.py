@@ -36,6 +36,7 @@ def test_cli_initializes_contract_and_resumes_status(tmp_path: Path):
         "tests pass",
     )
     assert initialized["initialized"] is True
+    assert initialized["policy"]["require_isolated_workspace"] is True
     saved = run_cli(
         "contract",
         "--workspace",
@@ -59,3 +60,6 @@ def test_cli_initializes_contract_and_resumes_status(tmp_path: Path):
     assert resumed["mission"]["mission_id"] == "mission_cli"
     assert resumed["contract_count"] == 1
     assert resumed["execution_count"] == 1
+    recovery = run_cli("resume", "--workspace", workspace)
+    assert recovery["next_actions"][0]["contract_id"] == "contract_cli"
+    assert "prepare workspace" in recovery["next_actions"][0]["action"]

@@ -14,6 +14,7 @@ from .models import (
     HandoffReceipt,
     HandoffStatus,
     MissionState,
+    ProtocolPolicy,
 )
 from .project_store import ProjectStore
 from .schema import validate_payload
@@ -29,15 +30,152 @@ class ProtocolEngine:
         self.workspace = GitWorkspace(self.store.workspace)
         self.detector = DriftDetector()
 
-    def initialize(self, mission: dict[str, Any], *, overwrite: bool = False) -> dict[str, Any]:
+    def initialize(
+        self,
+        mission: dict[str, Any],
+        *,
+        policy: dict[str, Any] | None = None,
+        overwrite: bool = False,
+    ) -> dict[str, Any]:
         validate_payload("mission", mission)
         model = MissionState.from_dict(mission)
         if not self.workspace.commit_exists(model.root_commit):
             raise ValueError(f"mission root commit does not exist: {model.root_commit}")
-        return self.store.initialize(mission, overwrite=overwrite)
+        policy_model = ProtocolPolicy.from_dict(policy)
+        validate_payload("policy", policy_model.to_dict())
+        return self.store.initialize(mission, policy=policy_model.to_dict(), overwrite=overwrite)
 
     def status(self) -> dict[str, Any]:
         return self.store.status()
+
+    def draft_contract(
+        self,
+        *,
+        objective: str,
+        in_scope: tuple[str, ...],
+        out_of_scope: tuple[str, ...],
+        allowed_files: tuple[str, ...],
+        forbidden_files: tuple[str, ...],
+        acceptance_criteria: tuple[str, ...],
+        required_tests: tuple[str, ...],
+        parent_id: str = "root",
+        dependencies: tuple[str, ...] = (),
+        deadline_or_budget: str | None = None,
+        contract_id: str | None = None,
+    ) -> dict[str, Any]:
+        mission = MissionState.from_dict(self.store.require_mission())
+        policy = self._policy()
+        if policy.require_required_tests and not required_tests:
+            raise ValueError("project policy requires at least one contract test")
+        values: dict[str, Any] = {
+            "objective": objective,
+            "in_scope": in_scope,
+            "out_of_scope": out_of_scope,
+            "allowed_files": allowed_files,
+            "forbidden_files": forbidden_files,
+            "acceptance_criteria": acceptance_criteria,
+            "required_tests": required_tests,
+            "base_commit": self.workspace.head(),
+            "parent_id": parent_id,
+            "mission_id": mission.mission_id,
+            "dependencies": dependencies,
+            "deadline_or_budget": deadline_or_budget,
+        }
+        if contract_id is not None:
+            values["contract_id"] = contract_id
+        contract = DelegationContract(**values)
+        validate_payload("contract", contract.to_dict())
+        return contract.to_dict()
+
+    def draft_receipt(
+        self,
+        contract_id: str,
+        *,
+        diff_summary: str,
+        acceptance_evidence: dict[str, str],
+        assumptions: tuple[str, ...] = (),
+        risks: tuple[str, ...] = (),
+        unresolved_questions: tuple[str, ...] = (),
+        evidence_links: tuple[str, ...] = (),
+        recommended_next_action: str | None = "parent verification",
+        evidence_workspace: str | Path | None = None,
+        test_timeout_seconds: float = 600,
+    ) -> dict[str, Any]:
+        if not diff_summary.strip():
+            raise ValueError("diff_summary is required")
+        contract = DelegationContract.from_dict(self.store.read_contract(contract_id))
+        execution = self.store.read_execution(contract_id)
+        if execution["status"] != HandoffStatus.REPORTING.value:
+            raise ValueError("receipt drafting requires reporting state")
+        evidence_path = self._resolve_evidence_workspace(execution, evidence_workspace)
+        timeout = self._bounded_timeout(test_timeout_seconds)
+        git = GitWorkspace(evidence_path)
+        result_commit = git.head()
+        evidence = git.collect_evidence(
+            contract.base_commit,
+            result_commit,
+            contract.required_tests,
+            timeout_seconds=timeout,
+        )
+        receipt = HandoffReceipt(
+            contract_id=contract.contract_id,
+            contract_version=contract.version,
+            agent_id=str(execution["agent_id"]),
+            status=HandoffStatus.REPORTING,
+            base_commit=contract.base_commit,
+            result_commit=result_commit,
+            changed_files=evidence.changed_files,
+            diff_summary=diff_summary,
+            tests_run=tuple(item.command for item in evidence.tests),
+            test_results=tuple("pass" if item.passed else "fail" for item in evidence.tests),
+            evidence_links=evidence_links,
+            assumptions=assumptions,
+            risks=risks,
+            unresolved_questions=unresolved_questions,
+            acceptance_evidence=acceptance_evidence,
+            recommended_next_action=recommended_next_action,
+        )
+        validate_payload("receipt", receipt.to_dict())
+        return receipt.to_dict()
+
+    def resume_summary(self) -> dict[str, Any]:
+        status = self.store.status()
+        if not status["initialized"]:
+            return {**status, "current_head": self.workspace.head(), "executions": [], "next_actions": ["initialize mission"]}
+        current_head = self.workspace.head()
+        summaries = []
+        next_actions = []
+        for execution in sorted(self.store.executions(), key=lambda item: (int(item["depth"]), str(item["contract_id"]))):
+            contract = self.store.read_contract(str(execution["contract_id"]))
+            state = HandoffStatus(str(execution["status"]))
+            action = self._recommended_action(state, str(execution["contract_id"]))
+            findings: list[str] = []
+            try:
+                verification = self.store.latest_verification(str(execution["contract_id"]))
+                findings = [str(item["code"]) for item in verification.get("findings", []) if item.get("severity") == "block"]
+            except FileNotFoundError:
+                pass
+            stale = state not in {HandoffStatus.INTEGRATED, HandoffStatus.REJECTED} and contract["base_commit"] != current_head
+            item = {
+                **execution,
+                "objective": contract["objective"],
+                "contract_version": contract["version"],
+                "base_commit": contract["base_commit"],
+                "parent_head": current_head,
+                "stale_against_parent": stale,
+                "blocking_findings": findings,
+                "recommended_action": "escalate stale base" if stale else action,
+            }
+            summaries.append(item)
+            if state != HandoffStatus.INTEGRATED:
+                next_actions.append({"contract_id": execution["contract_id"], "action": item["recommended_action"]})
+        return {
+            **status,
+            "current_head": current_head,
+            "root_commit_changed": status["mission"]["root_commit"] != current_head,
+            "executions": summaries,
+            "next_actions": next_actions,
+        }
 
     def delegate(
         self,
@@ -49,7 +187,10 @@ class ProtocolEngine:
     ) -> dict[str, Any]:
         validate_payload("contract", contract)
         mission = MissionState.from_dict(self.store.require_mission())
+        policy = self._policy()
         model = DelegationContract.from_dict(contract)
+        if policy.require_required_tests and not model.required_tests:
+            raise ValueError("project policy requires at least one contract test")
         if model.mission_id != mission.mission_id:
             raise ValueError("contract mission_id does not match the active mission")
         if self.store.contract_exists(model.contract_id):
@@ -82,6 +223,8 @@ class ProtocolEngine:
             raise ValueError(f"unknown contract dependencies: {unknown}")
         if not self.workspace.commit_exists(model.base_commit):
             raise ValueError(f"contract base commit does not exist: {model.base_commit}")
+        if workspace and policy.require_isolated_workspace and Path(workspace).expanduser().resolve() == self.store.workspace:
+            raise ValueError("project policy requires an isolated execution workspace")
 
         self.store.save_contract(model.to_dict())
         execution = {
@@ -119,6 +262,8 @@ class ProtocolEngine:
             raise ValueError("workspace preparation requires planned state")
         contract = DelegationContract.from_dict(self.store.read_contract(contract_id))
         target_path = Path(target).expanduser().resolve()
+        if self._policy().require_isolated_workspace and target_path == self.store.workspace:
+            raise ValueError("project policy requires an isolated execution workspace")
         if target_path.exists():
             raise FileExistsError(f"worktree target already exists: {target_path}")
         child = self.workspace.create_worktree(target_path, contract.base_commit)
@@ -147,17 +292,9 @@ class ProtocolEngine:
         if execution["status"] != HandoffStatus.REPORTING.value:
             raise ValueError("handoff verification requires reporting state")
 
-        assigned_workspace = execution.get("workspace")
-        requested_workspace = Path(evidence_workspace).expanduser().resolve() if evidence_workspace else None
-        if assigned_workspace:
-            assigned_path = Path(str(assigned_workspace)).expanduser().resolve()
-            if requested_workspace is not None and requested_workspace != assigned_path:
-                raise ValueError("evidence workspace does not match the assigned execution workspace")
-            evidence_path = assigned_path
-        elif requested_workspace is not None:
-            evidence_path = requested_workspace
-        else:
-            raise ValueError("verification requires an assigned evidence workspace")
+        policy = self._policy()
+        evidence_path = self._resolve_evidence_workspace(execution, evidence_workspace)
+        timeout = self._bounded_timeout(test_timeout_seconds)
         parent_head = self.workspace.head()
         findings = self.detector.inspect(
             mission,
@@ -172,7 +309,8 @@ class ProtocolEngine:
             contract,
             receipt_model,
             evidence_path,
-            test_timeout_seconds,
+            timeout,
+            policy,
         )
         findings.extend(evidence[1])
         mergeable = self.detector.is_mergeable(findings)
@@ -205,10 +343,11 @@ class ProtocolEngine:
         if not self.workspace.is_ancestor(result_commit, head):
             raise ValueError("current repository HEAD does not contain the verified result commit")
         contract = DelegationContract.from_dict(self.store.read_contract(contract_id))
+        timeout = self._bounded_timeout(test_timeout_seconds)
         commands = tuple(dict.fromkeys((*contract.required_tests, *integration_tests)))
         tests = []
         for command in commands:
-            passed, output = self.workspace.run_tests(command, timeout_seconds=test_timeout_seconds)
+            passed, output = self.workspace.run_tests(command, timeout_seconds=timeout)
             tests.append({"command": command, "passed": passed, "output": output[-12000:]})
         if any(not item["passed"] for item in tests):
             raise ValueError("integration tests failed; contract remains verified but not integrated")
@@ -312,6 +451,7 @@ class ProtocolEngine:
         receipt: HandoffReceipt,
         evidence_workspace: Path,
         timeout_seconds: float,
+        policy: ProtocolPolicy,
     ) -> tuple[RepositoryEvidence, list[DriftFinding]]:
         if not receipt.result_commit:
             evidence = GitWorkspace(evidence_workspace).collect_evidence(
@@ -326,6 +466,28 @@ class ProtocolEngine:
             timeout_seconds=timeout_seconds,
         )
         findings: list[DriftFinding] = []
+        if policy.require_isolated_workspace and evidence_workspace == self.store.workspace:
+            findings.append(
+                DriftFinding("SHARED_EVIDENCE_WORKSPACE", FindingSeverity.BLOCK, "project policy requires isolated evidence workspaces")
+            )
+        if policy.require_clean_evidence_workspace and not evidence.workspace_clean:
+            findings.append(
+                DriftFinding(
+                    "DIRTY_EVIDENCE_WORKSPACE",
+                    FindingSeverity.BLOCK,
+                    "evidence workspace contains uncommitted changes",
+                    ", ".join(evidence.workspace_status),
+                )
+            )
+        if len(evidence.changed_files) > policy.max_changed_files:
+            findings.append(
+                DriftFinding(
+                    "CHANGE_LIMIT_EXCEEDED",
+                    FindingSeverity.BLOCK,
+                    "changed-file count exceeds project policy",
+                    f"actual={len(evidence.changed_files)}, limit={policy.max_changed_files}",
+                )
+            )
         if not evidence.base_exists:
             findings.append(DriftFinding("BASE_COMMIT_NOT_FOUND", FindingSeverity.BLOCK, "base commit does not exist"))
         if not evidence.result_exists:
@@ -364,6 +526,47 @@ class ProtocolEngine:
                 DriftFinding("TEST_CLAIM_CONTRADICTED", FindingSeverity.BLOCK, "reported passing tests failed independently", ", ".join(contradicted))
             )
         return evidence, findings
+
+    def _policy(self) -> ProtocolPolicy:
+        return ProtocolPolicy.from_dict(self.store.read_policy())
+
+    def _bounded_timeout(self, requested: float) -> float:
+        if requested <= 0:
+            raise ValueError("test timeout must be positive")
+        return min(requested, self._policy().max_test_timeout_seconds)
+
+    def _resolve_evidence_workspace(
+        self,
+        execution: dict[str, Any],
+        requested: str | Path | None,
+    ) -> Path:
+        assigned_workspace = execution.get("workspace")
+        requested_workspace = Path(requested).expanduser().resolve() if requested else None
+        if assigned_workspace:
+            assigned_path = Path(str(assigned_workspace)).expanduser().resolve()
+            if requested_workspace is not None and requested_workspace != assigned_path:
+                raise ValueError("evidence workspace does not match the assigned execution workspace")
+            return assigned_path
+        if requested_workspace is not None:
+            return requested_workspace
+        raise ValueError("verification requires an assigned evidence workspace")
+
+    @staticmethod
+    def _recommended_action(status: HandoffStatus, contract_id: str) -> str:
+        actions = {
+            HandoffStatus.PLANNED: "prepare workspace, then claim",
+            HandoffStatus.CLAIMED: "start execution",
+            HandoffStatus.EXECUTING: "continue work or escalate",
+            HandoffStatus.REPORTING: "draft or verify handoff receipt",
+            HandoffStatus.VERIFIED: "parent review, integrate commit, then record integration",
+            HandoffStatus.INTEGRATED: "complete",
+            HandoffStatus.PARTIAL: "resume execution or block",
+            HandoffStatus.BLOCKED: "resolve blocker and resume",
+            HandoffStatus.NEEDS_PARENT_DECISION: "record parent decision",
+            HandoffStatus.STALE: "escalate and revise contract at current parent HEAD",
+            HandoffStatus.REJECTED: "inspect findings and re-claim only after correction",
+        }
+        return actions[status] + f" ({contract_id})"
 
     @staticmethod
     def _evidence_dict(evidence: RepositoryEvidence) -> dict[str, Any]:
