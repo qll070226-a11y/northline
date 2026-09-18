@@ -19,17 +19,7 @@ Northline 是一个面向 Codex 的 Skill 与 Plugin，用持久化任务主线�
 
 ## 工作方式
 
-```mermaid
-flowchart LR
-    G[Root Mission] --> K1[Worker Contract]
-    K1 --> K2[Leaf Contract]
-    K2 --> R[Handoff Receipt]
-    K1 --> R
-    R --> V{Deterministic Verifier}
-    V -->|blocked| X[Revise or Escalate]
-    V -->|verified| P[Parent Diff Review]
-    P --> I[Root-only Integration]
-```
+![Northline 系统架构与验证流程](./plugins/northline/assets/northline-architecture.png)
 
 Northline 默认采用受约束的 `Root -> Worker -> Leaf` 委派树，最大深度为 2。每次交接都必须关联当前契约版本、基线 commit、实际变更文件、测试结果和验收证据。
 
