@@ -182,6 +182,78 @@ def test_engine_drafts_contract_and_receipt_from_observed_repository_state(tmp_p
     assert receipt_data["agent_id"] == "worker_draft"
 
 
+def test_engine_dispatch_checkpoint_resume_and_report_root_worker_leaf(tmp_path: Path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git(repo, "init", "-q")
+    git(repo, "config", "user.email", "test@example.com")
+    git(repo, "config", "user.name", "Test")
+    (repo / "src").mkdir()
+    (repo / "src" / "app.py").write_text("base\n", encoding="utf-8")
+    git(repo, "add", ".")
+    git(repo, "commit", "-q", "-m", "base")
+    base = git(repo, "rev-parse", "HEAD")
+    engine = ProtocolEngine(repo)
+    mission = MissionState("mission_runtime", "complete nested work", root_commit=base)
+    engine.initialize(mission.to_dict())
+
+    worker_contract = engine.draft_contract(
+        objective="coordinate application change",
+        in_scope=("application",),
+        out_of_scope=("configuration",),
+        allowed_files=("src/**/*.py",),
+        forbidden_files=("pyproject.toml",),
+        acceptance_criteria=("tests pass",),
+        required_tests=("git status --porcelain",),
+        contract_id="contract_worker",
+    )
+    engine.delegate(worker_contract, agent_id="worker_runtime", role="worker")
+    worker_workspace = tmp_path / "worker-runtime"
+    engine.prepare_workspace("contract_worker", worker_workspace)
+    worker_packet = engine.create_agent_task_packet("contract_worker")
+    assert worker_packet["agent_id"] == "worker_runtime"
+    assert worker_packet["role"] == "worker"
+    assert worker_packet["root_objective"] == "complete nested work"
+    engine.transition("contract_worker", "claimed")
+    engine.transition("contract_worker", "executing")
+    (worker_workspace / "src" / "app.py").write_text("in progress\n", encoding="utf-8")
+    checkpoint = engine.record_agent_checkpoint(
+        "contract_worker",
+        completed=("inspected application",),
+        pending=("finish implementation", "run tests"),
+        notes=("resume from app.py",),
+    )
+    assert checkpoint["workspace_status"] == ["M src/app.py"]
+
+    leaf_contract = engine.draft_contract(
+        objective="prepare focused helper",
+        in_scope=("application helper",),
+        out_of_scope=("public API",),
+        allowed_files=("src/helper.py",),
+        forbidden_files=("src/app.py",),
+        acceptance_criteria=("helper exists",),
+        required_tests=("git status --porcelain",),
+        parent_id="worker_runtime",
+        contract_id="contract_leaf",
+    )
+    engine.delegate(leaf_contract, agent_id="leaf_runtime", role="leaf")
+    leaf_workspace = tmp_path / "leaf-runtime"
+    engine.prepare_workspace("contract_leaf", leaf_workspace)
+    leaf_packet = engine.create_agent_task_packet("contract_leaf")
+    assert leaf_packet["role"] == "leaf"
+    assert leaf_packet["parent_id"] == "worker_runtime"
+
+    resumed = ProtocolEngine(repo).resume_summary()
+    worker = next(item for item in resumed["executions"] if item["contract_id"] == "contract_worker")
+    assert worker["latest_checkpoint"]["checkpoint_id"] == checkpoint["checkpoint_id"]
+    assert worker["workspace_health"]["checkpoint_matches_head"] is True
+    report = ProtocolEngine(repo).project_report()
+    assert [(node["role"], node["depth"]) for node in report["delegation_tree"]] == [("worker", 1), ("leaf", 2)]
+    assert report["metrics"]["dispatch_count"] == 2
+    assert report["metrics"]["checkpoint_count"] == 1
+    assert any(event["event_type"] == "agent_checkpoint_recorded" for event in report["timeline"])
+
+
 def test_engine_blocks_receipt_that_disagrees_with_git(tmp_path: Path):
     repo, child, base, result = make_repository(tmp_path)
     engine, contract = prepare_engine(repo, child, base)

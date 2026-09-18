@@ -21,7 +21,8 @@ Ship a useful Codex Skill and Plugin that reduce long-task drift in everyday rep
 - `0.2.0`: product control plane, persistent `.northline/`, seven MCP tools, CLI fallback, personal marketplace installation.
 - `0.3.0`: unified protocol engine, automatic Git diff/test evidence, persistent execution/escalation state, worktree preparation, and explicit parent integration recording.
 - `0.4.0`: ergonomic contract/receipt generation, actionable resume summaries, configurable policies, and five-path forward workflow coverage.
-- `1.0.0`: forward-tested workflows, migration policy, cross-platform installer, and measured product evaluation.
+- `0.5.0`: schema migration, persisted Worker/Leaf dispatch packets, Git-backed interruption checkpoints, and delegation trace reports.
+- `1.0.0`: independently forward-tested workflows, cross-platform installer, and measured product evaluation.
 
 ## Secondary research track
 

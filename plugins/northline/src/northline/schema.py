@@ -6,7 +6,16 @@ from typing import Any, Literal
 
 from jsonschema import Draft202012Validator
 
-SchemaKind = Literal["mission", "policy", "contract", "receipt", "escalation", "escalationDecision"]
+SchemaKind = Literal[
+    "mission",
+    "policy",
+    "contract",
+    "dispatch",
+    "checkpoint",
+    "receipt",
+    "escalation",
+    "escalationDecision",
+]
 
 
 def protocol_schema() -> dict[str, Any]:

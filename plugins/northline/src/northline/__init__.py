@@ -1,12 +1,12 @@
 """Verifiable recursive delegation protocol."""
 
-__version__ = "0.4.0"
-
 from .detector import DriftDetector, DriftFinding, FindingSeverity
 from .engine import ProtocolEngine
 from .events import Event, EventLog
 from .models import (
+    AgentCheckpoint,
     AgentRole,
+    AgentTaskPacket,
     DelegationContract,
     EscalationDecision,
     EscalationKind,
@@ -20,9 +20,12 @@ from .models import (
 from .schema import protocol_schema, validate_payload
 from .scope import ParallelSafety, assess_parallel_safety
 from .state_machine import HandoffStateMachine
+from .version import __version__
 
 __all__ = [
     "AgentRole",
+    "AgentCheckpoint",
+    "AgentTaskPacket",
     "DelegationContract",
     "EscalationDecision",
     "EscalationKind",

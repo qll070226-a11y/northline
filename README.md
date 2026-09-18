@@ -34,6 +34,8 @@ Northline 默认采用受约束的 `Root -> Worker -> Leaf` 委派树，最大�
 | 证据门禁 | 父侧重建 Git diff、祖先关系和测试结果，不信任子智能体的完成声明 |
 | 并发审查 | 文件无重叠仍不够，共享 API、schema、迁移或顺序依赖也会阻止并行 |
 | 可追溯性 | 事件日志能够还原委派树、状态转换、验证结果与阻断原因 |
+| 中断恢复 | Git 支持的检查点记录已完成、待办、阻塞和 worktree 状态 |
+| 版本迁移 | `.northline/project.json` 标识 schema，旧项目通过显式命令迁移 |
 | 安全集成 | `VERIFIED` 只授权审查；Root 合并并复测后才记录 `INTEGRATED` |
 
 ## 安装 Plugin
@@ -104,9 +106,13 @@ northline status --workspace .
 | `initialize_project` | 初始化仓库级 MissionState |
 | `get_project_status` | 恢复当前任务主线和阻断状态 |
 | `get_project_resume` | 返回委派树、过期状态、阻断原因和推荐动作 |
+| `get_project_schema` | 检查 `.northline/` schema 和迁移需求 |
+| `migrate_project` | 执行受支持的确定性项目迁移 |
 | `draft_project_contract` | 自动填充 mission、父 HEAD、版本和契约 ID |
 | `delegate_project_task` | 保存契约并分配有界 Worker/Leaf 执行 |
 | `prepare_project_workspace` | 在契约基线创建隔离 Git worktree |
+| `create_agent_task_packet` | 生成并保存交给 Worker/Leaf 的完整任务包 |
+| `record_agent_checkpoint` | 保存中断恢复所需的 Git 支持检查点 |
 | `transition_project_handoff` | 持久化合法状态转换 |
 | `check_parallel_safety` | 保守评估两个子任务能否并行 |
 | `validate_handoff` | 无状态预检 HandoffReceipt |
@@ -117,15 +123,19 @@ northline status --workspace .
 | `submit_project_escalation` | 保存停止工作的升级请求 |
 | `decide_project_escalation` | 保存 Root/用户对升级请求的决定 |
 | `revise_project_contract` | 安装获批的新契约版本并重新开始 |
+| `get_project_report` | 汇总委派树、时间线、验证摘要和协议指标 |
 
 ## 持久化布局
 
 ```text
 .northline/
+|-- project.json
 |-- mission.json
 |-- policy.json
 |-- contracts/*.json
 |-- contract-history/*/v*.json
+|-- dispatches/*.json
+|-- checkpoints/<contract-id>/*.json
 |-- executions/*.json
 |-- receipts/*.json
 |-- verifications/*.json

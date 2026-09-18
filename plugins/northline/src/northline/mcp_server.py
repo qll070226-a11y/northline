@@ -146,6 +146,39 @@ def create_server():
     def get_project_resume(workspace: str) -> dict[str, Any]:
         return ProtocolEngine(workspace).resume_summary()
 
+    @server.tool(description="Inspect whether the repository-local Northline schema is current or requires migration.")
+    def get_project_schema(workspace: str) -> dict[str, Any]:
+        return ProtocolEngine(workspace).project_schema()
+
+    @server.tool(description="Migrate a legacy repository-local Northline project through a supported deterministic path.")
+    def migrate_project(workspace: str) -> dict[str, Any]:
+        return ProtocolEngine(workspace).migrate_project()
+
+    @server.tool(description="Create and persist a bounded task packet for a prepared Worker or Leaf workspace.")
+    def create_agent_task_packet(workspace: str, contract_id: str) -> dict[str, Any]:
+        return ProtocolEngine(workspace).create_agent_task_packet(contract_id)
+
+    @server.tool(description="Record a Git-backed progress checkpoint so interrupted agent work can be resumed safely.")
+    def record_agent_checkpoint(
+        workspace: str,
+        contract_id: str,
+        completed: list[str],
+        pending: list[str],
+        blockers: list[str] | None = None,
+        notes: list[str] | None = None,
+    ) -> dict[str, Any]:
+        return ProtocolEngine(workspace).record_agent_checkpoint(
+            contract_id,
+            completed=tuple(completed),
+            pending=tuple(pending),
+            blockers=tuple(blockers or ()),
+            notes=tuple(notes or ()),
+        )
+
+    @server.tool(description="Return the delegation tree, event timeline, verification summaries, and protocol metrics.")
+    def get_project_report(workspace: str) -> dict[str, Any]:
+        return ProtocolEngine(workspace).project_report()
+
     @server.tool(description="Draft a receipt from the assigned worktree's observed commit, diff, and freshly executed tests.")
     def draft_project_receipt(
         workspace: str,

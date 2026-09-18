@@ -9,7 +9,7 @@ Protect the user's root objective across long implementation and debugging chain
 
 ## Start or resume
 
-For a substantial task, inspect actionable state with `get_project_resume`. If no mission exists, initialize one with `initialize_project`, preserving the user's objective, constraints, acceptance criteria, current commit, maximum depth 2, at most 4 children per parent, and the default strict policy. If a mission exists, follow its recommended actions rather than silently replacing it.
+For a substantial task, inspect `get_project_schema` and actionable state with `get_project_resume`. Migrate a legacy project with `migrate_project` before using dispatch or checkpoint features. If no mission exists, initialize one with `initialize_project`, preserving the user's objective, constraints, acceptance criteria, current commit, maximum depth 2, at most 4 children per parent, and the default strict policy. If a mission exists, follow its recommended actions rather than silently replacing it.
 
 Do not relax isolation, clean-evidence, required-test, changed-file, or timeout policies unless the user or Root explicitly accepts that tradeoff.
 
@@ -25,7 +25,9 @@ Delegate only work that is independently executable or benefits from separate co
 - required tests and acceptance criteria;
 - current base commit, parent, dependencies, version, and budget.
 
-Persist the assignment with `delegate_project_task`, then use `prepare_project_workspace` when the child needs an isolated Git worktree. Advance the persistent execution through `claimed`, `executing`, and `reporting`; do not skip states.
+Persist the assignment with `delegate_project_task`, then use `prepare_project_workspace` to create its isolated Git worktree. Call `create_agent_task_packet` only after preparation and pass that complete packet to the assigned child; do not reconstruct its scope from conversation memory. Advance the persistent execution through `claimed`, `executing`, and `reporting`; do not skip states.
+
+Before interruption, context handoff, or blocked work, call `record_agent_checkpoint` with concrete completed work, pending work, blockers, and notes. Northline records the observed worktree commit and dirty-file state. On resume, compare the checkpoint with `workspace_health`; inspect any work done after the checkpoint before continuing.
 
 Use `check_parallel_safety` before parallel work. File disjointness alone is insufficient when contracts share APIs, schemas, migrations, or ordering dependencies. Root may create Workers; an authorized Worker may create Leafs; Leafs do not delegate.
 
@@ -41,7 +43,7 @@ Reject or revise work when the receipt is stale, out of scope, assigned to anoth
 
 When completion requires a newer base, wider scope, or conflict with a root constraint, stop work and use the escalation protocol. Root decides; root-constraint changes also require explicit user approval. Approval creates contract version `n+1` at current parent HEAD, and old receipts remain invalid.
 
-Read [references/escalation.md](references/escalation.md) when an escalation is needed. Read [references/product-workflow.md](references/product-workflow.md) when using the MCP/CLI interfaces or inspecting `.northline/` artifacts.
+Use `get_project_report` when Root needs the complete delegation tree, event timeline, verification summaries, and protocol overhead counts. Read [references/escalation.md](references/escalation.md) when an escalation is needed. Read [references/product-workflow.md](references/product-workflow.md) when using the MCP/CLI interfaces or inspecting `.northline/` artifacts.
 
 ## Completion rule
 

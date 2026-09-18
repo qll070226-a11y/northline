@@ -106,6 +106,27 @@ def main() -> None:
     resume_parser = sub.add_parser("resume", help="show actionable mission and delegation recovery state")
     resume_parser.add_argument("--workspace", type=Path, default=Path.cwd())
 
+    schema_parser = sub.add_parser("schema", help="inspect the repository-local Northline schema version")
+    schema_parser.add_argument("--workspace", type=Path, default=Path.cwd())
+
+    migrate_parser = sub.add_parser("migrate", help="migrate a legacy .northline project to the current schema")
+    migrate_parser.add_argument("--workspace", type=Path, default=Path.cwd())
+
+    dispatch_parser = sub.add_parser("dispatch", help="create a bounded agent task packet from a prepared contract")
+    dispatch_parser.add_argument("--workspace", type=Path, default=Path.cwd())
+    dispatch_parser.add_argument("--contract-id", required=True)
+
+    checkpoint_parser = sub.add_parser("checkpoint", help="record observed agent progress for interruption recovery")
+    checkpoint_parser.add_argument("--workspace", type=Path, default=Path.cwd())
+    checkpoint_parser.add_argument("--contract-id", required=True)
+    checkpoint_parser.add_argument("--completed", action="append", default=[])
+    checkpoint_parser.add_argument("--pending", action="append", default=[])
+    checkpoint_parser.add_argument("--blocker", action="append", default=[])
+    checkpoint_parser.add_argument("--note", action="append", default=[])
+
+    report_parser = sub.add_parser("report", help="render the delegation tree, timeline, and protocol metrics")
+    report_parser.add_argument("--workspace", type=Path, default=Path.cwd())
+
     verify = sub.add_parser("verify", help="verify and record a receipt without integrating source")
     verify.add_argument("--workspace", type=Path, default=Path.cwd())
     verify.add_argument("--contract-id", required=True)
@@ -208,6 +229,24 @@ def main() -> None:
         _print(engine.status())
     elif args.command == "resume":
         _print(engine.resume_summary())
+    elif args.command == "schema":
+        _print(engine.project_schema())
+    elif args.command == "migrate":
+        _print(engine.migrate_project())
+    elif args.command == "dispatch":
+        _print(engine.create_agent_task_packet(args.contract_id))
+    elif args.command == "checkpoint":
+        _print(
+            engine.record_agent_checkpoint(
+                args.contract_id,
+                completed=tuple(args.completed),
+                pending=tuple(args.pending),
+                blockers=tuple(args.blocker),
+                notes=tuple(args.note),
+            )
+        )
+    elif args.command == "report":
+        _print(engine.project_report())
     elif args.command == "receipt":
         _print(
             engine.draft_receipt(
@@ -255,7 +294,7 @@ def main() -> None:
                 user_approved=args.user_approved,
             )
         )
-    else:
+    elif args.command == "revise":
         _print(engine.revise_contract(args.request_id, json.loads(args.contract.read_text(encoding="utf-8"))))
 
 

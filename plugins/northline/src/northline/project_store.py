@@ -8,6 +8,9 @@ from typing import Any
 
 from .models import ProtocolPolicy
 from .schema import validate_payload
+from .version import __version__
+
+CURRENT_SCHEMA_VERSION = 1
 
 
 class ProjectStore:
@@ -27,6 +30,10 @@ class ProjectStore:
     def policy_path(self) -> Path:
         return self.control / "policy.json"
 
+    @property
+    def project_path(self) -> Path:
+        return self.control / "project.json"
+
     def initialize(
         self,
         mission: dict[str, Any],
@@ -45,9 +52,19 @@ class ProjectStore:
                 raise ValueError("cannot overwrite a mission with active protocol artifacts")
         self._write_json(self.mission_path, mission)
         self._write_json(self.policy_path, policy_payload)
+        self._write_json(
+            self.project_path,
+            {
+                "schema_version": CURRENT_SCHEMA_VERSION,
+                "created_with": __version__,
+                "updated_with": __version__,
+            },
+        )
         for directory in (
             "contracts",
             "contract-history",
+            "dispatches",
+            "checkpoints",
             "executions",
             "receipts",
             "verifications",
@@ -58,6 +75,63 @@ class ProjectStore:
             (self.control / directory).mkdir(parents=True, exist_ok=True)
         self._append_event("mission_initialized", {"mission_id": mission["mission_id"], "policy": policy_payload})
         return self.status()
+
+    def schema_status(self) -> dict[str, Any]:
+        initialized = self.mission_path.is_file()
+        if not initialized:
+            return {
+                "state": "uninitialized",
+                "schema_version": None,
+                "current_schema_version": CURRENT_SCHEMA_VERSION,
+                "migration_required": False,
+            }
+        if not self.project_path.is_file():
+            return {
+                "state": "legacy",
+                "schema_version": 0,
+                "current_schema_version": CURRENT_SCHEMA_VERSION,
+                "migration_required": True,
+            }
+        metadata = self._read_json(self.project_path)
+        version = int(metadata.get("schema_version", 0))
+        if version > CURRENT_SCHEMA_VERSION:
+            state = "unsupported_newer"
+        elif version < CURRENT_SCHEMA_VERSION:
+            state = "migration_required"
+        else:
+            state = "ready"
+        return {
+            **metadata,
+            "state": state,
+            "schema_version": version,
+            "current_schema_version": CURRENT_SCHEMA_VERSION,
+            "migration_required": version < CURRENT_SCHEMA_VERSION,
+        }
+
+    def migrate(self) -> dict[str, Any]:
+        status = self.schema_status()
+        if status["state"] == "uninitialized":
+            raise FileNotFoundError("project is not initialized")
+        if status["state"] == "unsupported_newer":
+            raise ValueError("project schema is newer than this Northline version")
+        if not status["migration_required"]:
+            return {**status, "migrated": False}
+        from_version = int(status["schema_version"])
+        if from_version != 0:
+            raise ValueError(f"no migration path from schema version {from_version}")
+        for directory in ("dispatches", "checkpoints"):
+            (self.control / directory).mkdir(parents=True, exist_ok=True)
+        metadata = {
+            "schema_version": CURRENT_SCHEMA_VERSION,
+            "created_with": "legacy",
+            "updated_with": __version__,
+        }
+        self._write_json(self.project_path, metadata)
+        self._append_event(
+            "project_migrated",
+            {"from_schema_version": from_version, "to_schema_version": CURRENT_SCHEMA_VERSION},
+        )
+        return {**self.schema_status(), "migrated": True, "from_schema_version": from_version}
 
     def read_policy(self) -> dict[str, Any]:
         if not self.policy_path.is_file():
@@ -123,6 +197,66 @@ class ProjectStore:
             raise FileExistsError(f"execution already exists: {contract_id}")
         self._write_json(path, execution)
         return execution
+
+    def save_dispatch(self, packet: dict[str, Any]) -> dict[str, Any]:
+        self._require_current_schema()
+        validate_payload("dispatch", packet)
+        packet_id = self._safe_id(str(packet["packet_id"]))
+        path = self.control / "dispatches" / f"{packet_id}.json"
+        if path.exists():
+            raise FileExistsError(f"dispatch packet already exists: {packet_id}")
+        payload = {**packet, "dispatched_at": self._timestamp()}
+        self._write_json(path, payload)
+        self._append_event(
+            "agent_task_dispatched",
+            {
+                "packet_id": packet_id,
+                "contract_id": packet["contract_id"],
+                "contract_version": packet["contract_version"],
+                "agent_id": packet["agent_id"],
+            },
+        )
+        return payload
+
+    def dispatches(self) -> list[dict[str, Any]]:
+        return self._json_files("dispatches")
+
+    def save_checkpoint(self, checkpoint: dict[str, Any]) -> dict[str, Any]:
+        self._require_current_schema()
+        validate_payload("checkpoint", checkpoint)
+        contract_id = self._safe_id(str(checkpoint["contract_id"]))
+        checkpoint_id = self._safe_id(str(checkpoint["checkpoint_id"]))
+        path = self.control / "checkpoints" / contract_id / f"{checkpoint_id}.json"
+        if path.exists():
+            raise FileExistsError(f"checkpoint already exists: {checkpoint_id}")
+        payload = {**checkpoint, "recorded_at": self._timestamp()}
+        self._write_json(path, payload)
+        self._append_event(
+            "agent_checkpoint_recorded",
+            {
+                "checkpoint_id": checkpoint_id,
+                "contract_id": contract_id,
+                "status": checkpoint["status"],
+            },
+        )
+        return payload
+
+    def latest_checkpoint(self, contract_id: str) -> dict[str, Any]:
+        root = self.control / "checkpoints" / self._safe_id(contract_id)
+        matches = [self._read_json(path) for path in sorted(root.glob("*.json"))] if root.is_dir() else []
+        if not matches:
+            raise FileNotFoundError(f"no checkpoint for contract: {contract_id}")
+        return max(matches, key=lambda item: str(item.get("recorded_at", "")))
+
+    def checkpoints(self) -> list[dict[str, Any]]:
+        root = self.control / "checkpoints"
+        return [self._read_json(path) for path in sorted(root.glob("*/*.json"))] if root.is_dir() else []
+
+    def events(self) -> list[dict[str, Any]]:
+        path = self.control / "events.jsonl"
+        if not path.is_file():
+            return []
+        return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
     def record_verification(self, receipt: dict[str, Any], verification: dict[str, Any]) -> dict[str, Any]:
         receipt_id = self._safe_id(str(receipt["receipt_id"]))
@@ -208,6 +342,7 @@ class ProjectStore:
         return {
             "initialized": mission is not None,
             "workspace": str(self.workspace),
+            "schema": self.schema_status(),
             "mission": mission,
             "policy": self.read_policy(),
             "contract_count": len(contracts),
@@ -216,6 +351,8 @@ class ProjectStore:
             "mergeable_count": sum(bool(item.get("mergeable")) for item in verifications),
             "blocked_count": len(blocking),
             "execution_count": len(executions),
+            "dispatch_count": len(self._json_files("dispatches")),
+            "checkpoint_count": len(self.checkpoints()),
             "execution_states": {
                 status: sum(item.get("status") == status for item in executions)
                 for status in sorted({str(item.get("status")) for item in executions})
@@ -228,6 +365,11 @@ class ProjectStore:
         if not self.mission_path.is_file():
             raise FileNotFoundError("project is not initialized; create .northline/mission.json first")
         return self._read_json(self.mission_path)
+
+    def _require_current_schema(self) -> None:
+        status = self.schema_status()
+        if status["state"] != "ready":
+            raise ValueError("project schema is not current; run the Northline migration first")
 
     def _json_files(self, directory: str) -> list[dict[str, Any]]:
         root = self.control / directory

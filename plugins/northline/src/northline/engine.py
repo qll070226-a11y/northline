@@ -6,7 +6,9 @@ from typing import Any
 
 from .detector import DriftDetector, DriftFinding, FindingSeverity
 from .models import (
+    AgentCheckpoint,
     AgentRole,
+    AgentTaskPacket,
     DelegationContract,
     EscalationDecision,
     EscalationKind,
@@ -47,6 +49,101 @@ class ProtocolEngine:
 
     def status(self) -> dict[str, Any]:
         return self.store.status()
+
+    def project_schema(self) -> dict[str, Any]:
+        return self.store.schema_status()
+
+    def migrate_project(self) -> dict[str, Any]:
+        return self.store.migrate()
+
+    def create_agent_task_packet(self, contract_id: str) -> dict[str, Any]:
+        mission = MissionState.from_dict(self.store.require_mission())
+        contract = DelegationContract.from_dict(self.store.read_contract(contract_id))
+        execution = self.store.read_execution(contract_id)
+        if execution["status"] != HandoffStatus.PLANNED.value:
+            raise ValueError("agent task dispatch requires planned state")
+        workspace = execution.get("workspace")
+        if not workspace:
+            raise ValueError("prepare an isolated workspace before dispatch")
+        execution_workspace = Path(str(workspace)).expanduser().resolve()
+        git = GitWorkspace(execution_workspace)
+        workspace_head = git.head()
+        if workspace_head != contract.base_commit:
+            raise ValueError("dispatch workspace HEAD does not match the contract base commit")
+        workspace_status = git.status_porcelain()
+        if workspace_status:
+            raise ValueError("dispatch workspace must be clean")
+        packet = AgentTaskPacket(
+            mission_id=mission.mission_id,
+            root_objective=mission.objective,
+            root_acceptance_criteria=mission.acceptance_criteria,
+            root_decisions=mission.decisions,
+            contract_id=contract.contract_id,
+            contract_version=contract.version,
+            agent_id=str(execution["agent_id"]),
+            role=AgentRole(str(execution["role"])),
+            parent_id=contract.parent_id,
+            workspace=str(execution_workspace),
+            base_commit=contract.base_commit,
+            objective=contract.objective,
+            global_constraints=mission.global_constraints,
+            in_scope=contract.in_scope,
+            out_of_scope=contract.out_of_scope,
+            allowed_files=contract.allowed_files,
+            forbidden_files=contract.forbidden_files,
+            acceptance_criteria=contract.acceptance_criteria,
+            required_tests=contract.required_tests,
+            deadline_or_budget=contract.deadline_or_budget,
+            protocol_rules=(
+                "Work only inside the assigned workspace and contract scope.",
+                "Do not change the mission, contract, parent decisions, or delegation limits.",
+                "Stop and escalate before acting on stale state, wider scope, or root-constraint conflict.",
+                "Record a checkpoint before interruption or when blocked.",
+                "Commit the result before reporting and do not claim tests that were not run.",
+            ),
+        )
+        validate_payload("dispatch", packet.to_dict())
+        return self.store.save_dispatch(packet.to_dict())
+
+    def record_agent_checkpoint(
+        self,
+        contract_id: str,
+        *,
+        completed: tuple[str, ...],
+        pending: tuple[str, ...],
+        blockers: tuple[str, ...] = (),
+        notes: tuple[str, ...] = (),
+    ) -> dict[str, Any]:
+        contract = DelegationContract.from_dict(self.store.read_contract(contract_id))
+        execution = self.store.read_execution(contract_id)
+        state = HandoffStatus(str(execution["status"]))
+        if state not in {
+            HandoffStatus.CLAIMED,
+            HandoffStatus.EXECUTING,
+            HandoffStatus.PARTIAL,
+            HandoffStatus.BLOCKED,
+        }:
+            raise ValueError("checkpoint requires claimed, executing, partial, or blocked state")
+        workspace = execution.get("workspace")
+        if not workspace:
+            raise ValueError("checkpoint requires an assigned workspace")
+        git = GitWorkspace(Path(str(workspace)).expanduser().resolve())
+        checkpoint = AgentCheckpoint(
+            contract_id=contract.contract_id,
+            contract_version=contract.version,
+            agent_id=str(execution["agent_id"]),
+            status=state,
+            current_commit=git.head(),
+            completed=completed,
+            pending=pending,
+            blockers=blockers,
+            notes=notes,
+            workspace_status=git.status_porcelain(),
+        )
+        validate_payload("checkpoint", checkpoint.to_dict())
+        execution["current_commit"] = checkpoint.current_commit
+        self.store.save_execution(execution, replace=True)
+        return self.store.save_checkpoint(checkpoint.to_dict())
 
     def draft_contract(
         self,
@@ -150,12 +247,22 @@ class ProtocolEngine:
             state = HandoffStatus(str(execution["status"]))
             action = self._recommended_action(state, str(execution["contract_id"]))
             findings: list[str] = []
+            checkpoint = None
             try:
                 verification = self.store.latest_verification(str(execution["contract_id"]))
                 findings = [str(item["code"]) for item in verification.get("findings", []) if item.get("severity") == "block"]
             except FileNotFoundError:
                 pass
+            try:
+                checkpoint = self.store.latest_checkpoint(str(execution["contract_id"]))
+            except FileNotFoundError:
+                pass
             stale = state not in {HandoffStatus.INTEGRATED, HandoffStatus.REJECTED} and contract["base_commit"] != current_head
+            workspace_health = self._workspace_health(execution, checkpoint)
+            if not workspace_health["exists"] and state not in {HandoffStatus.INTEGRATED, HandoffStatus.REJECTED}:
+                action = "restore or prepare the assigned workspace before continuing"
+            elif checkpoint and not workspace_health["checkpoint_matches_head"]:
+                action = "inspect workspace changes made after the latest checkpoint"
             item = {
                 **execution,
                 "objective": contract["objective"],
@@ -164,6 +271,8 @@ class ProtocolEngine:
                 "parent_head": current_head,
                 "stale_against_parent": stale,
                 "blocking_findings": findings,
+                "latest_checkpoint": checkpoint,
+                "workspace_health": workspace_health,
                 "recommended_action": "escalate stale base" if stale else action,
             }
             summaries.append(item)
@@ -175,6 +284,69 @@ class ProtocolEngine:
             "root_commit_changed": status["mission"]["root_commit"] != current_head,
             "executions": summaries,
             "next_actions": next_actions,
+        }
+
+    def project_report(self) -> dict[str, Any]:
+        status = self.store.status()
+        if not status["initialized"]:
+            return {"status": status, "delegation_tree": [], "timeline": [], "metrics": {"event_count": 0}}
+        events = self.store.events()
+        nodes = []
+        blocking_finding_count = 0
+        for execution in sorted(self.store.executions(), key=lambda item: (int(item["depth"]), str(item["contract_id"]))):
+            contract_id = str(execution["contract_id"])
+            contract = self.store.read_contract(contract_id)
+            try:
+                checkpoint = self.store.latest_checkpoint(contract_id)
+            except FileNotFoundError:
+                checkpoint = None
+            try:
+                verification = self.store.latest_verification(contract_id)
+                findings = [
+                    item for item in verification.get("findings", []) if item.get("severity") == FindingSeverity.BLOCK.value
+                ]
+            except FileNotFoundError:
+                verification = None
+                findings = []
+            blocking_finding_count += len(findings)
+            nodes.append(
+                {
+                    "contract_id": contract_id,
+                    "contract_version": contract["version"],
+                    "objective": contract["objective"],
+                    "agent_id": execution["agent_id"],
+                    "role": execution["role"],
+                    "parent_id": execution["parent_id"],
+                    "depth": execution["depth"],
+                    "status": execution["status"],
+                    "workspace": execution.get("workspace"),
+                    "latest_checkpoint": checkpoint,
+                    "latest_verification": None
+                    if verification is None
+                    else {
+                        "receipt_id": verification["receipt_id"],
+                        "mergeable": verification["mergeable"],
+                        "verified_at": verification.get("verified_at"),
+                        "blocking_findings": [item["code"] for item in findings],
+                    },
+                    "recommended_action": self._recommended_action(HandoffStatus(execution["status"]), contract_id),
+                }
+            )
+        return {
+            "mission": status["mission"],
+            "policy": status["policy"],
+            "schema": status["schema"],
+            "delegation_tree": nodes,
+            "timeline": events,
+            "metrics": {
+                "event_count": len(events),
+                "contract_count": status["contract_count"],
+                "dispatch_count": status["dispatch_count"],
+                "checkpoint_count": status["checkpoint_count"],
+                "verification_count": status["verification_count"],
+                "integration_count": status["integration_count"],
+                "blocking_finding_count": blocking_finding_count,
+            },
         }
 
     def delegate(
@@ -550,6 +722,28 @@ class ProtocolEngine:
         if requested_workspace is not None:
             return requested_workspace
         raise ValueError("verification requires an assigned evidence workspace")
+
+    @staticmethod
+    def _workspace_health(execution: dict[str, Any], checkpoint: dict[str, Any] | None) -> dict[str, Any]:
+        workspace = execution.get("workspace")
+        if not workspace:
+            return {"exists": False, "head": None, "clean": None, "checkpoint_matches_head": None}
+        path = Path(str(workspace)).expanduser().resolve()
+        if not path.is_dir():
+            return {"exists": False, "head": None, "clean": None, "checkpoint_matches_head": None}
+        try:
+            git = GitWorkspace(path)
+            head = git.head()
+            status = git.status_porcelain()
+        except (RuntimeError, ValueError):
+            return {"exists": True, "head": None, "clean": None, "checkpoint_matches_head": None}
+        return {
+            "exists": True,
+            "head": head,
+            "clean": not status,
+            "workspace_status": list(status),
+            "checkpoint_matches_head": checkpoint is None or checkpoint.get("current_commit") == head,
+        }
 
     @staticmethod
     def _recommended_action(status: HandoffStatus, contract_id: str) -> str:

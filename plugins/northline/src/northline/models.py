@@ -188,6 +188,92 @@ class ExecutionState:
 
 
 @dataclass(frozen=True)
+class AgentTaskPacket:
+    mission_id: str
+    root_objective: str
+    root_acceptance_criteria: tuple[str, ...]
+    root_decisions: tuple[str, ...]
+    contract_id: str
+    contract_version: int
+    agent_id: str
+    role: AgentRole
+    parent_id: str
+    workspace: str
+    base_commit: str
+    objective: str
+    global_constraints: tuple[str, ...]
+    in_scope: tuple[str, ...]
+    out_of_scope: tuple[str, ...]
+    allowed_files: tuple[str, ...]
+    forbidden_files: tuple[str, ...]
+    acceptance_criteria: tuple[str, ...]
+    required_tests: tuple[str, ...]
+    protocol_rules: tuple[str, ...]
+    deadline_or_budget: str | None = None
+    packet_id: str = field(default_factory=lambda: _id("dispatch"))
+
+    def __post_init__(self) -> None:
+        if self.contract_version < 1:
+            raise ValueError("contract_version must be >= 1")
+        if self.role not in {AgentRole.WORKER, AgentRole.LEAF}:
+            raise ValueError("task packets can only target worker or leaf agents")
+        if not self.workspace.strip() or not self.base_commit.strip():
+            raise ValueError("task packet requires workspace and base commit")
+
+    def to_dict(self) -> dict[str, Any]:
+        return _json_ready(asdict(self))
+
+
+@dataclass(frozen=True)
+class AgentCheckpoint:
+    contract_id: str
+    contract_version: int
+    agent_id: str
+    status: HandoffStatus
+    current_commit: str
+    completed: tuple[str, ...]
+    pending: tuple[str, ...]
+    blockers: tuple[str, ...] = ()
+    notes: tuple[str, ...] = ()
+    workspace_status: tuple[str, ...] = ()
+    checkpoint_id: str = field(default_factory=lambda: _id("checkpoint"))
+
+    def __post_init__(self) -> None:
+        if self.contract_version < 1:
+            raise ValueError("contract_version must be >= 1")
+        if self.status not in {
+            HandoffStatus.CLAIMED,
+            HandoffStatus.EXECUTING,
+            HandoffStatus.PARTIAL,
+            HandoffStatus.BLOCKED,
+        }:
+            raise ValueError("checkpoint status must describe active or interrupted work")
+        if not self.current_commit.strip():
+            raise ValueError("checkpoint current_commit is required")
+        if not self.completed and not self.pending and not self.blockers:
+            raise ValueError("checkpoint must record progress, pending work, or blockers")
+
+    def to_dict(self) -> dict[str, Any]:
+        return _json_ready(asdict(self))
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "AgentCheckpoint":
+        return cls(
+            contract_id=str(data["contract_id"]),
+            contract_version=int(data["contract_version"]),
+            agent_id=str(data["agent_id"]),
+            status=HandoffStatus(data["status"]),
+            current_commit=str(data["current_commit"]),
+            completed=tuple(data.get("completed", ())),
+            pending=tuple(data.get("pending", ())),
+            blockers=tuple(data.get("blockers", ())),
+            notes=tuple(data.get("notes", ())),
+            workspace_status=tuple(data.get("workspace_status", ())),
+            checkpoint_id=str(data.get("checkpoint_id") or _id("checkpoint")),
+        )
+
+
+@dataclass(frozen=True)
 class HandoffReceipt:
     contract_id: str
     agent_id: str

@@ -63,6 +63,8 @@ def test_project_store_persists_verification_without_integrating(tmp_path: Path)
     assert status["contract_count"] == 1
     assert status["mergeable_count"] == 1
     assert status["policy"]["require_clean_evidence_workspace"] is True
+    assert status["schema"]["state"] == "ready"
+    assert status["schema"]["schema_version"] == 1
     assert source.read_text(encoding="utf-8") == "original\n"
     assert (tmp_path / ".northline" / "events.jsonl").is_file()
 
@@ -106,3 +108,31 @@ def test_project_store_refuses_mission_overwrite_with_active_artifacts(tmp_path:
     store.save_contract(contract.to_dict())
     with pytest.raises(ValueError, match="active protocol artifacts"):
         store.initialize(mission.to_dict(), overwrite=True)
+
+
+def test_project_store_requires_explicit_migration_for_new_artifacts(tmp_path: Path):
+    mission, _, _ = artifacts()
+    store = ProjectStore(tmp_path)
+    store.initialize(mission.to_dict())
+    store.project_path.unlink()
+    assert store.schema_status()["state"] == "legacy"
+    checkpoint = {
+        "checkpoint_id": "checkpoint_legacy",
+        "contract_id": "contract_legacy",
+        "contract_version": 1,
+        "agent_id": "worker_legacy",
+        "status": "executing",
+        "current_commit": "base",
+        "completed": ["inspection"],
+        "pending": ["implementation"],
+        "blockers": [],
+        "notes": [],
+        "workspace_status": [],
+    }
+    with pytest.raises(ValueError, match="migration"):
+        store.save_checkpoint(checkpoint)
+    migrated = store.migrate()
+    assert migrated["migrated"] is True
+    assert migrated["from_schema_version"] == 0
+    assert store.save_checkpoint(checkpoint)["checkpoint_id"] == "checkpoint_legacy"
+    assert store.migrate()["migrated"] is False

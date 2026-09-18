@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "northline"
-version = "0.4.0"
+version = "0.5.0"
 description = "A Codex skill and plugin for verifiable long-horizon software delegation."
 readme = "README.md"
 license = {text = "MIT"}
