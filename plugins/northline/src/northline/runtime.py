@@ -160,7 +160,7 @@ class DelegationRuntime:
             self.receipts[receipt.contract_id] = receipt
         return findings
 
-    def verify_and_integrate(self, contract_id: str, receipt: HandoffReceipt, *, current_head: str | None = None) -> list[DriftFinding]:
+    def verify_receipt(self, contract_id: str, receipt: HandoffReceipt, *, current_head: str | None = None) -> list[DriftFinding]:
         if contract_id != receipt.contract_id:
             raise ValueError("contract_id does not match receipt.contract_id")
         contract = self.contracts[contract_id]
@@ -185,10 +185,15 @@ class DelegationRuntime:
             self.advance(contract_id, HandoffStatus.REJECTED)
             return findings
         if not self.transitions[contract_id].can_transition(HandoffStatus.VERIFIED):
-            raise ValueError("receipt can only be integrated after reporting")
+            raise ValueError("receipt can only be verified after reporting")
         self.advance(contract_id, HandoffStatus.VERIFIED)
-        self.advance(contract_id, HandoffStatus.INTEGRATED)
         return findings
+
+    def mark_integrated(self, contract_id: str) -> HandoffStatus:
+        if self.transitions[contract_id].status != HandoffStatus.VERIFIED:
+            raise ValueError("only verified work can be marked integrated")
+        self.advance(contract_id, HandoffStatus.INTEGRATED)
+        return self.transitions[contract_id].status
 
 
 def demo_runtime() -> DelegationRuntime:
@@ -228,5 +233,6 @@ def demo_runtime() -> DelegationRuntime:
         test_results=("pass",),
         acceptance_evidence={"unit tests pass": "python -m unittest discover -s tests: pass"},
     )
-    runtime.verify_and_integrate(contract.contract_id, receipt, current_head="demo-base")
+    runtime.verify_receipt(contract.contract_id, receipt, current_head="demo-base")
+    runtime.mark_integrated(contract.contract_id)
     return runtime

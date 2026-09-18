@@ -41,10 +41,10 @@ Northline 默认采用受约束的 `Root -> Worker -> Leaf` 委派树，最大�
 | 递归委派 | 只有获授权的 Worker 可以继续派生 Leaf，Root 保留最终集成权 |
 | 范围控制 | 对允许文件、禁止文件、局部目标和依赖进行确定性检查 |
 | 状态新鲜度 | 阻止基于过期 commit 或旧契约版本提交的结果 |
-| 证据门禁 | 要求测试命令、测试结果和验收条件到证据的映射 |
+| 证据门禁 | 父侧重建 Git diff、祖先关系和测试结果，不信任子智能体的完成声明 |
 | 并发审查 | 文件无重叠仍不够，共享 API、schema、迁移或顺序依赖也会阻止并行 |
 | 可追溯性 | 事件日志能够还原委派树、状态转换、验证结果与阻断原因 |
-| 安全集成 | 验证器不会修改或合并源代码；最终合并仍由 Root 完成 |
+| 安全集成 | `VERIFIED` 只授权审查；Root 合并并复测后才记录 `INTEGRATED` |
 
 ## 安装 Plugin
 
@@ -105,6 +105,7 @@ northline status --workspace .
 ```
 
 完整交接流程见 [product-workflow.md](./plugins/northline/skills/northline/references/product-workflow.md)。
+完整系统边界、数据流和信任模型见 [architecture.md](./plugins/northline/docs/architecture.md)。
 
 ## MCP 工具
 
@@ -112,11 +113,17 @@ northline status --workspace .
 | --- | --- |
 | `initialize_project` | 初始化仓库级 MissionState |
 | `get_project_status` | 恢复当前任务主线和阻断状态 |
-| `save_project_contract` | 保存版本化 DelegationContract |
+| `delegate_project_task` | 保存契约并分配有界 Worker/Leaf 执行 |
+| `prepare_project_workspace` | 在契约基线创建隔离 Git worktree |
+| `transition_project_handoff` | 持久化合法状态转换 |
 | `check_parallel_safety` | 保守评估两个子任务能否并行 |
 | `validate_handoff` | 无状态预检 HandoffReceipt |
 | `check_transition` | 验证协议状态转换是否合法 |
-| `verify_project_handoff` | 验证并记录交接，但不集成代码 |
+| `verify_project_handoff` | 重建 Git/测试证据并记录交接，不集成代码 |
+| `record_project_integration` | 确认父 HEAD 包含结果并复测后记录集成 |
+| `submit_project_escalation` | 保存停止工作的升级请求 |
+| `decide_project_escalation` | 保存 Root/用户对升级请求的决定 |
+| `revise_project_contract` | 安装获批的新契约版本并重新开始 |
 
 ## 持久化布局
 
@@ -124,8 +131,13 @@ northline status --workspace .
 .northline/
 |-- mission.json
 |-- contracts/*.json
+|-- contract-history/*/v*.json
+|-- executions/*.json
 |-- receipts/*.json
 |-- verifications/*.json
+|-- escalations/*.json
+|-- decisions/*.json
+|-- integrations/*.json
 `-- events.jsonl
 ```
 

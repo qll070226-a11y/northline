@@ -9,8 +9,8 @@ Ship a useful Codex Skill and Plugin that reduce long-task drift in everyday rep
 ## Product acceptance criteria
 
 1. A user can install the Skill alone or the complete Plugin.
-2. The Plugin persists mission, contract, receipt, verification, and event artifacts under `.northline/`.
-3. Codex can initialize/resume a mission, save contracts, assess parallel safety, validate handoffs, and report blockers through MCP.
+2. The Plugin persists mission, contract history, execution, receipt, verification, escalation, decision, integration, and event artifacts under `.northline/`.
+3. Codex can initialize/resume a mission, delegate contracts, prepare worktrees, assess parallel safety, transition executions, rebuild handoff evidence, escalate, and record observed integration through MCP.
 4. The CLI provides the same critical path when MCP is unavailable.
 5. Verification never silently modifies source or performs integration.
 6. A stale, wrong-agent, out-of-scope, old-version, failing-test, or evidence-free handoff is blocked deterministically.
@@ -19,7 +19,7 @@ Ship a useful Codex Skill and Plugin that reduce long-task drift in everyday rep
 ## Release sequence
 
 - `0.2.0`: product control plane, persistent `.northline/`, seven MCP tools, CLI fallback, personal marketplace installation.
-- `0.3.0`: automatic Git diff/test evidence collection and explicit parent integration recording.
+- `0.3.0`: unified protocol engine, automatic Git diff/test evidence, persistent execution/escalation state, worktree preparation, and explicit parent integration recording.
 - `0.4.0`: ergonomic contract/receipt generation, resume summaries, and configurable policies.
 - `1.0.0`: forward-tested workflows, migration policy, cross-platform installer, and measured product evaluation.
 

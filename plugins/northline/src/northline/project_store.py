@@ -6,8 +6,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .detector import DriftDetector
-from .models import DelegationContract, HandoffReceipt, MissionState
 from .schema import validate_payload
 
 
@@ -28,10 +26,22 @@ class ProjectStore:
         validate_payload("mission", mission)
         if self.mission_path.exists() and not overwrite:
             raise FileExistsError("mission already exists; explicit overwrite is required")
+        if self.mission_path.exists() and overwrite:
+            artifact_directories = ("contracts", "executions", "receipts", "verifications", "integrations")
+            if any(self._json_files(directory) for directory in artifact_directories):
+                raise ValueError("cannot overwrite a mission with active protocol artifacts")
         self._write_json(self.mission_path, mission)
-        (self.control / "contracts").mkdir(parents=True, exist_ok=True)
-        (self.control / "receipts").mkdir(parents=True, exist_ok=True)
-        (self.control / "verifications").mkdir(parents=True, exist_ok=True)
+        for directory in (
+            "contracts",
+            "contract-history",
+            "executions",
+            "receipts",
+            "verifications",
+            "escalations",
+            "decisions",
+            "integrations",
+        ):
+            (self.control / directory).mkdir(parents=True, exist_ok=True)
         self._append_event("mission_initialized", {"mission_id": mission["mission_id"]})
         return self.status()
 
@@ -45,77 +55,130 @@ class ProjectStore:
             current = self._read_json(path)
             if int(contract.get("version", 1)) <= int(current.get("version", 1)):
                 raise ValueError("contract update must increment the version")
+        history_path = (
+            self.control
+            / "contract-history"
+            / self._safe_id(str(contract["contract_id"]))
+            / f"v{int(contract.get('version', 1))}.json"
+        )
+        if history_path.exists():
+            raise FileExistsError(f"contract version already exists: {contract['contract_id']} v{contract.get('version', 1)}")
         self._write_json(path, contract)
+        self._write_json(history_path, contract)
         self._append_event(
             "contract_saved",
             {"contract_id": contract["contract_id"], "version": contract.get("version", 1)},
         )
         return {"saved": True, "path": str(path), "contract_id": contract["contract_id"]}
 
-    def verify_and_record(
-        self,
-        contract_id: str,
-        receipt: dict[str, Any],
-        current_head: str,
-        expected_agent_id: str | None = None,
-    ) -> dict[str, Any]:
-        mission = self._require_mission()
-        safe_id = self._safe_id(contract_id)
-        contract_path = self.control / "contracts" / f"{safe_id}.json"
-        if not contract_path.is_file():
+    def require_mission(self) -> dict[str, Any]:
+        return self._require_mission()
+
+    def contract_exists(self, contract_id: str) -> bool:
+        return (self.control / "contracts" / f"{self._safe_id(contract_id)}.json").is_file()
+
+    def contracts(self) -> list[dict[str, Any]]:
+        return self._json_files("contracts")
+
+    def read_contract(self, contract_id: str) -> dict[str, Any]:
+        path = self.control / "contracts" / f"{self._safe_id(contract_id)}.json"
+        if not path.is_file():
             raise FileNotFoundError(f"unknown contract: {contract_id}")
-        contract = self._read_json(contract_path)
-        if receipt.get("contract_id") != contract_id:
-            raise ValueError("receipt contract_id does not match the selected contract")
-        mission_model = MissionState.from_dict(mission)
-        contract_model = DelegationContract.from_dict(contract)
-        receipt_model = HandoffReceipt.from_dict(receipt)
-        findings = DriftDetector().inspect(
-            mission_model,
-            contract_model,
-            receipt_model,
-            current_head=current_head,
-            root_constraints=mission_model.global_constraints,
-            expected_agent_id=expected_agent_id,
-        )
-        result = {
-            "mergeable": DriftDetector.is_mergeable(findings),
-            "findings": [
-                {
-                    "code": finding.code,
-                    "severity": finding.severity.value,
-                    "message": finding.message,
-                    "evidence": finding.evidence,
-                }
-                for finding in findings
-            ],
-        }
+        return self._read_json(path)
+
+    def executions(self) -> list[dict[str, Any]]:
+        return self._json_files("executions")
+
+    def read_execution(self, contract_id: str) -> dict[str, Any]:
+        path = self.control / "executions" / f"{self._safe_id(contract_id)}.json"
+        if not path.is_file():
+            raise FileNotFoundError(f"unknown execution: {contract_id}")
+        return self._read_json(path)
+
+    def save_execution(self, execution: dict[str, Any], *, replace: bool = False) -> dict[str, Any]:
+        contract_id = self._safe_id(str(execution["contract_id"]))
+        path = self.control / "executions" / f"{contract_id}.json"
+        if path.exists() and not replace:
+            raise FileExistsError(f"execution already exists: {contract_id}")
+        self._write_json(path, execution)
+        return execution
+
+    def record_verification(self, receipt: dict[str, Any], verification: dict[str, Any]) -> dict[str, Any]:
         receipt_id = self._safe_id(str(receipt["receipt_id"]))
         receipt_path = self.control / "receipts" / f"{receipt_id}.json"
         verification_path = self.control / "verifications" / f"{receipt_id}.json"
         if receipt_path.exists() or verification_path.exists():
-            raise FileExistsError(f"receipt already recorded: {receipt['receipt_id']}")
+            raise FileExistsError(f"receipt already recorded: {receipt_id}")
         self._write_json(receipt_path, receipt)
-        verification = {
-            "receipt_id": receipt["receipt_id"],
-            "contract_id": contract_id,
-            "mergeable": result["mergeable"],
-            "findings": result["findings"],
-            "verified_at": self._timestamp(),
-            "integration_authorized": result["mergeable"],
-            "integrated": False,
-        }
-        self._write_json(verification_path, verification)
+        payload = {**verification, "verified_at": self._timestamp()}
+        self._write_json(verification_path, payload)
         self._append_event(
-            "handoff_verified" if result["mergeable"] else "handoff_rejected",
-            {"contract_id": contract_id, "receipt_id": receipt["receipt_id"], "mergeable": result["mergeable"]},
+            "handoff_verified" if verification["mergeable"] else "handoff_rejected",
+            {
+                "contract_id": verification["contract_id"],
+                "receipt_id": receipt_id,
+                "mergeable": verification["mergeable"],
+            },
         )
-        return verification
+        return payload
+
+    def latest_verification(self, contract_id: str) -> dict[str, Any]:
+        matches = [
+            item for item in self._json_files("verifications") if item.get("contract_id") == contract_id
+        ]
+        if not matches:
+            raise FileNotFoundError(f"no verification for contract: {contract_id}")
+        return max(matches, key=lambda item: str(item.get("verified_at", "")))
+
+    def record_integration(self, integration: dict[str, Any]) -> dict[str, Any]:
+        contract_id = self._safe_id(str(integration["contract_id"]))
+        path = self.control / "integrations" / f"{contract_id}.json"
+        if path.exists():
+            raise FileExistsError(f"integration already recorded: {contract_id}")
+        payload = {**integration, "integrated_at": self._timestamp()}
+        self._write_json(path, payload)
+        self._append_event("handoff_integrated", {"contract_id": contract_id, "integrated_commit": payload["integrated_commit"]})
+        return payload
+
+    def save_escalation(self, request: dict[str, Any]) -> dict[str, Any]:
+        request_id = self._safe_id(str(request["request_id"]))
+        path = self.control / "escalations" / f"{request_id}.json"
+        if path.exists():
+            raise FileExistsError(f"escalation already exists: {request_id}")
+        self._write_json(path, request)
+        self._append_event("escalation_submitted", {"request_id": request_id, "contract_id": request["contract_id"]})
+        return request
+
+    def read_escalation(self, request_id: str) -> dict[str, Any]:
+        path = self.control / "escalations" / f"{self._safe_id(request_id)}.json"
+        if not path.is_file():
+            raise FileNotFoundError(f"unknown escalation: {request_id}")
+        return self._read_json(path)
+
+    def save_decision(self, decision: dict[str, Any]) -> dict[str, Any]:
+        request_id = self._safe_id(str(decision["request_id"]))
+        path = self.control / "decisions" / f"{request_id}.json"
+        if path.exists():
+            raise FileExistsError(f"escalation decision already exists: {request_id}")
+        self._write_json(path, decision)
+        self._append_event("escalation_decided", decision)
+        return decision
+
+    def read_decision(self, request_id: str) -> dict[str, Any]:
+        path = self.control / "decisions" / f"{self._safe_id(request_id)}.json"
+        if not path.is_file():
+            raise FileNotFoundError(f"no decision for escalation: {request_id}")
+        return self._read_json(path)
+
+    def append_event(self, event_type: str, payload: dict[str, Any]) -> None:
+        self._append_event(event_type, payload)
 
     def status(self) -> dict[str, Any]:
         mission = self._read_json(self.mission_path) if self.mission_path.is_file() else None
         contracts = self._json_files("contracts")
         verifications = self._json_files("verifications")
+        executions = self._json_files("executions")
+        integrations = self._json_files("integrations")
         blocking = [
             item
             for item in verifications
@@ -130,6 +193,12 @@ class ProjectStore:
             "verification_count": len(verifications),
             "mergeable_count": sum(bool(item.get("mergeable")) for item in verifications),
             "blocked_count": len(blocking),
+            "execution_count": len(executions),
+            "execution_states": {
+                status: sum(item.get("status") == status for item in executions)
+                for status in sorted({str(item.get("status")) for item in executions})
+            },
+            "integration_count": len(integrations),
             "model": "verification never implies automatic integration",
         }
 

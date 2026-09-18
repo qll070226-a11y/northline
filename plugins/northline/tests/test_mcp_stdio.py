@@ -33,9 +33,15 @@ class McpStdioTests(unittest.TestCase):
                 "check_transition",
                 "check_parallel_safety",
                 "initialize_project",
-                "save_project_contract",
+                "delegate_project_task",
+                "prepare_project_workspace",
+                "transition_project_handoff",
                 "get_project_status",
                 "verify_project_handoff",
+                "record_project_integration",
+                "submit_project_escalation",
+                "decide_project_escalation",
+                "revise_project_contract",
             },
         )
 

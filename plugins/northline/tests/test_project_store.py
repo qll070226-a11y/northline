@@ -37,7 +37,7 @@ def artifacts():
     return mission, contract, receipt
 
 
-def test_project_store_persists_and_verifies_without_integrating(tmp_path: Path):
+def test_project_store_persists_verification_without_integrating(tmp_path: Path):
     source = tmp_path / "src" / "app.py"
     source.parent.mkdir()
     source.write_text("original\n", encoding="utf-8")
@@ -45,7 +45,17 @@ def test_project_store_persists_and_verifies_without_integrating(tmp_path: Path)
     store = ProjectStore(tmp_path)
     store.initialize(mission.to_dict())
     store.save_contract(contract.to_dict())
-    result = store.verify_and_record("contract_1", receipt.to_dict(), "base", "worker_001")
+    result = store.record_verification(
+        receipt.to_dict(),
+        {
+            "receipt_id": receipt.receipt_id,
+            "contract_id": contract.contract_id,
+            "mergeable": True,
+            "findings": [],
+            "integration_authorized": True,
+            "integrated": False,
+        },
+    )
     status = store.status()
     assert result["mergeable"] is True
     assert result["integration_authorized"] is True
@@ -56,13 +66,23 @@ def test_project_store_persists_and_verifies_without_integrating(tmp_path: Path)
     assert (tmp_path / ".northline" / "events.jsonl").is_file()
 
 
-def test_project_store_records_blocked_receipt(tmp_path: Path):
+def test_project_store_records_blocked_verification(tmp_path: Path):
     mission, contract, receipt = artifacts()
     store = ProjectStore(tmp_path)
     store.initialize(mission.to_dict())
     store.save_contract(contract.to_dict())
     bad = {**receipt.to_dict(), "receipt_id": "receipt_bad", "changed_files": ["pyproject.toml"]}
-    result = store.verify_and_record("contract_1", bad, "base", "worker_001")
+    result = store.record_verification(
+        bad,
+        {
+            "receipt_id": "receipt_bad",
+            "contract_id": contract.contract_id,
+            "mergeable": False,
+            "findings": [{"code": "OUT_OF_SCOPE", "severity": "block"}],
+            "integration_authorized": False,
+            "integrated": False,
+        },
+    )
     assert result["mergeable"] is False
     assert store.status()["blocked_count"] == 1
 
@@ -76,3 +96,12 @@ def test_project_store_refuses_overwrite_and_unsafe_ids(tmp_path: Path):
     bad = {**contract.to_dict(), "contract_id": "../escape"}
     with pytest.raises(ValueError, match="safe path component"):
         store.save_contract(bad)
+
+
+def test_project_store_refuses_mission_overwrite_with_active_artifacts(tmp_path: Path):
+    mission, contract, _ = artifacts()
+    store = ProjectStore(tmp_path)
+    store.initialize(mission.to_dict())
+    store.save_contract(contract.to_dict())
+    with pytest.raises(ValueError, match="active protocol artifacts"):
+        store.initialize(mission.to_dict(), overwrite=True)

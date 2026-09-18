@@ -1,6 +1,9 @@
 """Verifiable recursive delegation protocol."""
 
+__version__ = "0.3.0"
+
 from .detector import DriftDetector, DriftFinding, FindingSeverity
+from .engine import ProtocolEngine
 from .events import Event, EventLog
 from .models import (
     AgentRole,
@@ -36,5 +39,7 @@ __all__ = [
     "protocol_schema",
     "validate_payload",
     "ParallelSafety",
+    "ProtocolEngine",
     "assess_parallel_safety",
+    "__version__",
 ]

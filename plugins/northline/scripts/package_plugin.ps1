@@ -12,8 +12,10 @@ New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 
 $Stage = Join-Path ([System.IO.Path]::GetTempPath()) ("northline-plugin-" + [guid]::NewGuid().ToString("N"))
 $StageRoot = Join-Path $Stage "northline"
-$Archive = Join-Path $OutputDirectory "northline-plugin-0.2.0.zip"
-$Checksum = Join-Path $OutputDirectory "northline-plugin-0.2.0.sha256.txt"
+$Version = (Get-Content -LiteralPath (Join-Path $ProjectRoot ".codex-plugin\plugin.json") -Raw | ConvertFrom-Json).version
+$ArchiveName = "northline-plugin-$Version.zip"
+$Archive = Join-Path $OutputDirectory $ArchiveName
+$Checksum = Join-Path $OutputDirectory "northline-plugin-$Version.sha256.txt"
 
 try {
     New-Item -ItemType Directory -Path $StageRoot -Force | Out-Null
@@ -39,7 +41,7 @@ try {
     }
     Compress-Archive -LiteralPath $StageRoot -DestinationPath $Archive -CompressionLevel Optimal -Force
     $Hash = (Get-FileHash -LiteralPath $Archive -Algorithm SHA256).Hash.ToLowerInvariant()
-    Set-Content -LiteralPath $Checksum -Value "$Hash  northline-plugin-0.2.0.zip" -Encoding ascii
+    Set-Content -LiteralPath $Checksum -Value "$Hash  $ArchiveName" -Encoding ascii
     Write-Output $Archive
     Write-Output $Checksum
 } finally {

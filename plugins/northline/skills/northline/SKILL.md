@@ -23,13 +23,15 @@ Delegate only work that is independently executable or benefits from separate co
 - required tests and acceptance criteria;
 - current base commit, parent, dependencies, version, and budget.
 
+Persist the assignment with `delegate_project_task`, then use `prepare_project_workspace` when the child needs an isolated Git worktree. Advance the persistent execution through `claimed`, `executing`, and `reporting`; do not skip states.
+
 Use `check_parallel_safety` before parallel work. File disjointness alone is insufficient when contracts share APIs, schemas, migrations, or ordering dependencies. Root may create Workers; an authorized Worker may create Leafs; Leafs do not delegate.
 
 ## Receive and verify
 
 Require a `HandoffReceipt` in `reporting` state. It must disclose result commit, changed files, diff summary, exact tests and results, criterion-to-evidence mappings, assumptions, risks, unresolved questions, and contract version.
 
-Call `verify_project_handoff` against the parent's current HEAD and expected agent. Treat every deterministic `block` finding as non-overridable. A mergeable result authorizes parent review; it does not mean the source was integrated. Root must still inspect the diff, run integration tests, perform the merge, and then report the actual repository state.
+Call `verify_project_handoff` with the child's evidence worktree. Northline rebuilds Git ancestry, changed-file, HEAD, and required-test evidence instead of trusting the receipt. Treat every deterministic `block` finding as non-overridable. A mergeable result enters `verified`; it does not mean the source was integrated. Root must still inspect the diff, integrate the result commit, and call `record_project_integration`, which observes parent HEAD and reruns integration tests before entering `integrated`.
 
 Reject or revise work when the receipt is stale, out of scope, assigned to another agent, missing evidence, failing required tests, or based on an old contract version.
 

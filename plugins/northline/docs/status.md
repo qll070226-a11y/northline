@@ -1,11 +1,15 @@
 # Research Artifact Status
 
-Date: 2026-09-13
+Date: 2026-09-18
 
 Primary delivery changed on 2026-09-14: the Codex Skill and Plugin are now the product objective. The paper and experiment harness are supporting research artifacts. See `docs/product-roadmap.md`.
 
 ## Completed
 
+- Product v0.3 unified `ProtocolEngine`, with CLI and MCP using the same persistent state transitions
+- Parent-rebuilt Git ancestry, exact changed-file, workspace-HEAD, and required-test evidence
+- Explicit `VERIFIED` versus `INTEGRATED` gates, including post-integration test execution
+- Persistent execution, contract history, escalation, decision, integration, and isolated-worktree records
 - Framework-neutral protocol types, bounded Root/Worker/Leaf runtime, and Draft 2020-12 schemas
 - Deterministic identity, version, commit, path, test, criterion, dependency, and unresolved-question gates
 - Stop-work escalation, contract revision, stale-receipt rejection, append-only event replay, and Git worktree isolation
@@ -38,7 +42,8 @@ Primary delivery changed on 2026-09-14: the Codex Skill and Plugin are now the p
 
 ## Verified locally
 
-- 66 protocol, product-store, CLI, MCP, runner, backend, selection, worktree, task-freeze, controlled-pilot, image-context, review, container-gate, promotion-gate, blueprint-audit, and statistical tests pass
+- 73 tests pass across the protocol, persistent engine, CLI/MCP, real Git worktrees, research runner, controlled tasks, review gates, and statistics
+- Protocol-engine integration tests cover real commits, detached worktrees, false file claims, false passing-test claims, assigned-workspace enforcement, and integration ancestry
 - Ruff syntax, symbol, and import checks pass
 - Official Skill and Plugin validators pass
 - Synthetic scope, stale-state, evidence, ambiguity, and compound escalation faults are blocked
@@ -73,6 +78,10 @@ The promotion report currently blocks model execution until image validation, tw
 
 The 32-task blueprint audit currently blocks expansion because only the eight-task bug-fix pilot blueprints exist. It reports the missing 24 tasks and the missing `api_change`, `test_completion`, and `refactor` strata.
 
-## Next milestone
+## Next product milestone
+
+Forward-test the Skill in fresh Codex tasks, add ergonomic contract and receipt generation, improve resume summaries, and define migration behavior for `.northline/` state. The product remains the primary delivery; the research pipeline below supplies evidence rather than blocking ordinary releases.
+
+## Next research milestone
 
 Run the task-image builder in a normal terminal or remote evaluator with Docker access, record immutable task-image digests and container logs, complete the two-rater review and adjudication, then expand the pilot to 32 tasks before building the sealed 120-task suite and two-model, two-condition confirmatory schedule. The public set proceeds in parallel only as an external sensitivity study.

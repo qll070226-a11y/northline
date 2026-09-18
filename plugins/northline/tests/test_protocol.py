@@ -53,8 +53,10 @@ class ProtocolTests(unittest.TestCase):
         for status in (HandoffStatus.CLAIMED, HandoffStatus.EXECUTING, HandoffStatus.REPORTING):
             runtime.advance(c.contract_id, status)
         receipt = HandoffReceipt(c.contract_id, execution.agent_id, HandoffStatus.REPORTING, "abc", "def", ("src/parser.py",), "implemented", ("python -m unittest",), ("pass",), acceptance_evidence={"tests pass": "python -m unittest: pass"})
-        findings = runtime.verify_and_integrate(c.contract_id, receipt, current_head="abc")
+        findings = runtime.verify_receipt(c.contract_id, receipt, current_head="abc")
         self.assertTrue(DriftDetector.is_mergeable(findings))
+        self.assertEqual(runtime.transitions[c.contract_id].status, HandoffStatus.VERIFIED)
+        runtime.mark_integrated(c.contract_id)
         self.assertEqual(len(runtime.receipts), 1)
         self.assertGreaterEqual(len(runtime.event_log.events), 5)
 
@@ -84,7 +86,7 @@ class ProtocolTests(unittest.TestCase):
         execution = runtime.delegate("root", c, AgentRole.WORKER)
         receipt = HandoffReceipt(c.contract_id, execution.agent_id, HandoffStatus.REPORTING, "abc", "def", ("src/parser.py",), "implemented", ("python -m unittest",), ("pass",), acceptance_evidence={"tests pass": "pass"})
         with self.assertRaises(ValueError):
-            runtime.verify_and_integrate("different-contract", receipt, current_head="abc")
+            runtime.verify_receipt("different-contract", receipt, current_head="abc")
 
     def test_runtime_enforces_depth(self):
         mission = MissionState("m1", "objective", max_depth=1)
@@ -115,7 +117,7 @@ class ProtocolTests(unittest.TestCase):
             dependent.contract_id, execution.agent_id, HandoffStatus.REPORTING, "abc", "def", ("tests/test_x.py",),
             "implemented", ("test",), ("pass",), acceptance_evidence={"pass": "test: pass"},
         )
-        findings = runtime.verify_and_integrate(dependent.contract_id, receipt, current_head="abc")
+        findings = runtime.verify_receipt(dependent.contract_id, receipt, current_head="abc")
         self.assertEqual([finding.code for finding in findings], ["DEPENDENCY_NOT_INTEGRATED"])
         self.assertEqual(runtime.transitions[dependent.contract_id].status, HandoffStatus.REJECTED)
 
@@ -198,7 +200,7 @@ class ProtocolTests(unittest.TestCase):
             acceptance_evidence={"tests pass": "python -m unittest: pass"},
             contract_version=1,
         )
-        findings = runtime.verify_and_integrate(original.contract_id, old_receipt, current_head="base-v2")
+        findings = runtime.verify_receipt(original.contract_id, old_receipt, current_head="base-v2")
         codes = {finding.code for finding in findings}
         self.assertIn("CONTRACT_VERSION_MISMATCH", codes)
         self.assertIn("STALE_BASE", codes)

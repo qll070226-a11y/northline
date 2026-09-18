@@ -229,6 +229,26 @@ class EscalationRequest:
     def to_dict(self) -> dict[str, Any]:
         return _json_ready(asdict(self))
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "EscalationRequest":
+        return cls(
+            contract_id=str(data["contract_id"]),
+            contract_version=int(data["contract_version"]),
+            agent_id=str(data["agent_id"]),
+            kinds=tuple(EscalationKind(item) for item in data["kinds"]),
+            contract_base_commit=str(data["contract_base_commit"]),
+            workspace_merge_base=str(data["workspace_merge_base"]),
+            parent_head=str(data["parent_head"]),
+            blocking_evidence=tuple(data["blocking_evidence"]),
+            requested_changes=dict(data["requested_changes"]),
+            alternatives=tuple(data.get("alternatives", ())),
+            risks=tuple(data.get("risks", ())),
+            required_tests=tuple(data.get("required_tests", ())),
+            requires_user_decision=bool(data.get("requires_user_decision", False)),
+            stopped_work=bool(data.get("stopped_work", True)),
+            request_id=str(data["request_id"]),
+        )
+
 
 @dataclass(frozen=True)
 class EscalationDecision:

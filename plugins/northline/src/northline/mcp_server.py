@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 from .detector import DriftDetector
+from .engine import ProtocolEngine
 from .models import DelegationContract, HandoffReceipt, HandoffStatus, MissionState
-from .project_store import ProjectStore
 from .schema import validate_payload
 from .scope import assess_parallel_safety
 from .state_machine import HandoffStateMachine
@@ -79,27 +79,85 @@ def create_server():
 
     @server.tool(description="Initialize a repository-local .northline mission. Existing missions require explicit overwrite.")
     def initialize_project(workspace: str, mission: dict[str, Any], overwrite: bool = False) -> dict[str, Any]:
-        return ProjectStore(workspace).initialize(mission, overwrite=overwrite)
+        return ProtocolEngine(workspace).initialize(mission, overwrite=overwrite)
 
-    @server.tool(description="Save a versioned delegation contract under the repository-local .northline control directory.")
-    def save_project_contract(workspace: str, contract: dict[str, Any]) -> dict[str, Any]:
-        return ProjectStore(workspace).save_contract(contract)
+    @server.tool(description="Persist a contract and assign it to a bounded Worker or Leaf execution.")
+    def delegate_project_task(
+        workspace: str,
+        contract: dict[str, Any],
+        agent_id: str,
+        role: str,
+        execution_workspace: str | None = None,
+    ) -> dict[str, Any]:
+        return ProtocolEngine(workspace).delegate(
+            contract,
+            agent_id=agent_id,
+            role=role,
+            workspace=execution_workspace,
+        )
+
+    @server.tool(description="Create a detached Git worktree for one planned contract at its immutable base commit.")
+    def prepare_project_workspace(workspace: str, contract_id: str, target: str) -> dict[str, Any]:
+        return ProtocolEngine(workspace).prepare_workspace(contract_id, target)
+
+    @server.tool(description="Advance one persistent contract execution through an authorized protocol transition.")
+    def transition_project_handoff(workspace: str, contract_id: str, target: str) -> dict[str, Any]:
+        return ProtocolEngine(workspace).transition(contract_id, target)
 
     @server.tool(description="Return mission and verification counts without exposing receipt contents.")
     def get_project_status(workspace: str) -> dict[str, Any]:
-        return ProjectStore(workspace).status()
+        return ProtocolEngine(workspace).status()
 
-    @server.tool(description="Verify and record a handoff. This never integrates or modifies source files.")
+    @server.tool(description="Rebuild Git and test evidence, then verify and record a handoff without integrating source files.")
     def verify_project_handoff(
         workspace: str,
         contract_id: str,
         receipt: dict[str, Any],
-        current_head: str,
-        expected_agent_id: str | None = None,
+        evidence_workspace: str | None = None,
+        test_timeout_seconds: float = 600,
     ) -> dict[str, Any]:
-        return ProjectStore(workspace).verify_and_record(
-            contract_id, receipt, current_head, expected_agent_id
+        return ProtocolEngine(workspace).verify_handoff(
+            contract_id,
+            receipt,
+            evidence_workspace=evidence_workspace,
+            test_timeout_seconds=test_timeout_seconds,
         )
+
+    @server.tool(description="Record integration only after repository HEAD contains the verified result and integration tests pass.")
+    def record_project_integration(
+        workspace: str,
+        contract_id: str,
+        integration_tests: list[str] | None = None,
+        test_timeout_seconds: float = 600,
+    ) -> dict[str, Any]:
+        return ProtocolEngine(workspace).record_integration(
+            contract_id,
+            integration_tests=tuple(integration_tests or ()),
+            test_timeout_seconds=test_timeout_seconds,
+        )
+
+    @server.tool(description="Persist a stopped-work escalation and move its execution into a waiting state.")
+    def submit_project_escalation(workspace: str, request: dict[str, Any]) -> dict[str, Any]:
+        return ProtocolEngine(workspace).submit_escalation(request)
+
+    @server.tool(description="Record the Root decision for a persistent escalation.")
+    def decide_project_escalation(
+        workspace: str,
+        request_id: str,
+        approved: bool,
+        rationale: str,
+        user_approved: bool = False,
+    ) -> dict[str, Any]:
+        return ProtocolEngine(workspace).decide_escalation(
+            request_id,
+            approved=approved,
+            rationale=rationale,
+            user_approved=user_approved,
+        )
+
+    @server.tool(description="Install an approved contract revision at current parent HEAD and restart its execution.")
+    def revise_project_contract(workspace: str, request_id: str, revised_contract: dict[str, Any]) -> dict[str, Any]:
+        return ProtocolEngine(workspace).revise_contract(request_id, revised_contract)
 
     return server
 

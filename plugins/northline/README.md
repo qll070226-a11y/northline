@@ -15,7 +15,8 @@ Northline 是一个面向 Codex 的 Skill 与 Plugin。它把根任务、委派�
 - 用版本化 `DelegationContract` 限制每个子任务的目标、文件和测试。
 - 用 `HandoffReceipt` 记录变更、测试、证据、假设、风险和遗留问题。
 - 确定性检查 agent 身份、契约版本、commit 新鲜度、文件范围和测试证据。
-- 验证只授权父智能体继续审查，不会自动修改或合并源代码。
+- 创建固定基线的隔离 Git worktree，并由父侧重新计算 diff、commit 祖先关系和测试结果。
+- 严格区分 `VERIFIED` 与 `INTEGRATED`：验证只授权父智能体继续审查，不会自动合并源代码。
 
 ## 准备本地运行时
 
@@ -37,6 +38,7 @@ powershell -ExecutionPolicy Bypass -File scripts\setup_plugin.ps1
 ```
 
 完整 MCP 与 CLI 流程见 [product-workflow.md](./skills/northline/references/product-workflow.md)。
+系统边界、信任模型与数据流见 [architecture.md](./docs/architecture.md)。
 
 ## 状态目录
 
@@ -44,8 +46,13 @@ powershell -ExecutionPolicy Bypass -File scripts\setup_plugin.ps1
 .northline/
 |-- mission.json
 |-- contracts/*.json
+|-- contract-history/*/v*.json
+|-- executions/*.json
 |-- receipts/*.json
 |-- verifications/*.json
+|-- escalations/*.json
+|-- decisions/*.json
+|-- integrations/*.json
 `-- events.jsonl
 ```
 

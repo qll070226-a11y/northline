@@ -6,8 +6,9 @@ import subprocess
 from pathlib import Path
 from uuid import uuid4
 
+from . import __version__
+from .engine import ProtocolEngine
 from .models import DelegationContract, MissionState
-from .project_store import ProjectStore
 from .runtime import demo_runtime
 
 
@@ -18,7 +19,10 @@ def _head(workspace: Path) -> str:
         text=True,
         check=False,
     )
-    return completed.stdout.strip() if completed.returncode == 0 else "unversioned"
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or "git rev-parse failed"
+        raise RuntimeError(f"workspace must be a Git repository with a commit: {detail}")
+    return completed.stdout.strip()
 
 
 def _print(value: object) -> None:
@@ -42,7 +46,7 @@ def main() -> None:
     initialize.add_argument("--max-children", type=int, default=4)
     initialize.add_argument("--overwrite", action="store_true")
 
-    contract_parser = sub.add_parser("contract", help="save one child delegation contract")
+    contract_parser = sub.add_parser("contract", help="save and assign one child delegation contract")
     contract_parser.add_argument("--workspace", type=Path, default=Path.cwd())
     contract_parser.add_argument("--objective", required=True)
     contract_parser.add_argument("--in-scope", action="append", required=True)
@@ -54,6 +58,19 @@ def main() -> None:
     contract_parser.add_argument("--parent-id", default="root")
     contract_parser.add_argument("--contract-id", default=None)
     contract_parser.add_argument("--agent-budget", default=None)
+    contract_parser.add_argument("--agent-id", default=None)
+    contract_parser.add_argument("--role", choices=("worker", "leaf"), default=None)
+    contract_parser.add_argument("--execution-workspace", type=Path, default=None)
+
+    transition = sub.add_parser("transition", help="advance one persistent handoff state")
+    transition.add_argument("--workspace", type=Path, default=Path.cwd())
+    transition.add_argument("--contract-id", required=True)
+    transition.add_argument("--target", required=True)
+
+    prepare = sub.add_parser("prepare", help="create an isolated worktree for one planned contract")
+    prepare.add_argument("--workspace", type=Path, default=Path.cwd())
+    prepare.add_argument("--contract-id", required=True)
+    prepare.add_argument("--target", type=Path, required=True)
 
     status_parser = sub.add_parser("status", help="show repository-local mission status")
     status_parser.add_argument("--workspace", type=Path, default=Path.cwd())
@@ -62,8 +79,30 @@ def main() -> None:
     verify.add_argument("--workspace", type=Path, default=Path.cwd())
     verify.add_argument("--contract-id", required=True)
     verify.add_argument("--receipt", type=Path, required=True)
-    verify.add_argument("--current-head", default=None)
-    verify.add_argument("--expected-agent-id", default=None)
+    verify.add_argument("--evidence-workspace", type=Path, default=None)
+    verify.add_argument("--test-timeout-seconds", type=float, default=600)
+
+    integrate = sub.add_parser("integrate", help="record an observed integration after tests pass")
+    integrate.add_argument("--workspace", type=Path, default=Path.cwd())
+    integrate.add_argument("--contract-id", required=True)
+    integrate.add_argument("--test", action="append", default=[])
+    integrate.add_argument("--test-timeout-seconds", type=float, default=600)
+
+    escalation = sub.add_parser("escalate", help="persist a stopped-work escalation request")
+    escalation.add_argument("--workspace", type=Path, default=Path.cwd())
+    escalation.add_argument("--request", type=Path, required=True)
+
+    decision = sub.add_parser("decide", help="record the Root decision for an escalation")
+    decision.add_argument("--workspace", type=Path, default=Path.cwd())
+    decision.add_argument("--request-id", required=True)
+    decision.add_argument("--approved", action=argparse.BooleanOptionalAction, required=True)
+    decision.add_argument("--rationale", required=True)
+    decision.add_argument("--user-approved", action="store_true")
+
+    revision = sub.add_parser("revise", help="install an approved contract revision")
+    revision.add_argument("--workspace", type=Path, default=Path.cwd())
+    revision.add_argument("--request-id", required=True)
+    revision.add_argument("--contract", type=Path, required=True)
     args = parser.parse_args()
 
     if args.command in {"demo", "evaluate"}:
@@ -78,7 +117,7 @@ def main() -> None:
             args.output.parent.mkdir(parents=True, exist_ok=True)
             payload = {
                 "protocol": "northline",
-                "version": "0.2.0",
+                "version": __version__,
                 "integrated_receipts": len(runtime.receipts),
                 "status": "pass",
             }
@@ -87,7 +126,7 @@ def main() -> None:
         return
 
     workspace = args.workspace.resolve()
-    store = ProjectStore(workspace)
+    engine = ProtocolEngine(workspace)
     if args.command == "init":
         mission = MissionState(
             mission_id=args.mission_id or f"mission_{uuid4().hex[:12]}",
@@ -98,9 +137,9 @@ def main() -> None:
             max_depth=args.max_depth,
             max_children=args.max_children,
         )
-        _print(store.initialize(mission.to_dict(), overwrite=args.overwrite))
+        _print(engine.initialize(mission.to_dict(), overwrite=args.overwrite))
     elif args.command == "contract":
-        mission = store.status()["mission"]
+        mission = engine.status()["mission"]
         if mission is None:
             raise FileNotFoundError("initialize the workspace before saving a contract")
         contract = DelegationContract(
@@ -117,19 +156,54 @@ def main() -> None:
             deadline_or_budget=args.agent_budget,
             contract_id=args.contract_id or f"contract_{uuid4().hex[:12]}",
         )
-        _print(store.save_contract(contract.to_dict()))
-    elif args.command == "status":
-        _print(store.status())
-    else:
-        receipt = json.loads(args.receipt.read_text(encoding="utf-8"))
+        role = args.role or ("worker" if args.parent_id == "root" else "leaf")
+        existing = engine.status()["execution_count"]
+        agent_id = args.agent_id or f"{role}_{existing + 1:03d}"
         _print(
-            store.verify_and_record(
-                args.contract_id,
-                receipt,
-                args.current_head or _head(workspace),
-                args.expected_agent_id,
+            engine.delegate(
+                contract.to_dict(),
+                agent_id=agent_id,
+                role=role,
+                workspace=str(args.execution_workspace.resolve()) if args.execution_workspace else None,
             )
         )
+    elif args.command == "status":
+        _print(engine.status())
+    elif args.command == "prepare":
+        _print(engine.prepare_workspace(args.contract_id, args.target))
+    elif args.command == "transition":
+        _print(engine.transition(args.contract_id, args.target))
+    elif args.command == "verify":
+        receipt = json.loads(args.receipt.read_text(encoding="utf-8"))
+        _print(
+            engine.verify_handoff(
+                args.contract_id,
+                receipt,
+                evidence_workspace=args.evidence_workspace.resolve() if args.evidence_workspace else None,
+                test_timeout_seconds=args.test_timeout_seconds,
+            )
+        )
+    elif args.command == "integrate":
+        _print(
+            engine.record_integration(
+                args.contract_id,
+                integration_tests=tuple(args.test),
+                test_timeout_seconds=args.test_timeout_seconds,
+            )
+        )
+    elif args.command == "escalate":
+        _print(engine.submit_escalation(json.loads(args.request.read_text(encoding="utf-8"))))
+    elif args.command == "decide":
+        _print(
+            engine.decide_escalation(
+                args.request_id,
+                approved=args.approved,
+                rationale=args.rationale,
+                user_approved=args.user_approved,
+            )
+        )
+    else:
+        _print(engine.revise_contract(args.request_id, json.loads(args.contract.read_text(encoding="utf-8"))))
 
 
 if __name__ == "__main__":

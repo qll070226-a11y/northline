@@ -15,6 +15,12 @@ def run_cli(*arguments: str) -> dict:
 
 
 def test_cli_initializes_contract_and_resumes_status(tmp_path: Path):
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, check=True)
+    (tmp_path / "README.md").write_text("test\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "base"], cwd=tmp_path, check=True)
     workspace = str(tmp_path)
     initialized = run_cli(
         "init",
@@ -49,5 +55,7 @@ def test_cli_initializes_contract_and_resumes_status(tmp_path: Path):
     )
     resumed = run_cli("status", "--workspace", workspace)
     assert saved["contract_id"] == "contract_cli"
+    assert saved["status"] == "planned"
     assert resumed["mission"]["mission_id"] == "mission_cli"
     assert resumed["contract_count"] == 1
+    assert resumed["execution_count"] == 1
