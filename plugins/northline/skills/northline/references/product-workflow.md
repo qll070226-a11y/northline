@@ -97,4 +97,12 @@ Run `northline schema --workspace .` before resuming an older project. If it rep
 
 The Codex adapter follows the official [non-interactive mode](https://developers.openai.com/zh-Hans/docs/non-interactive-mode): prompts use stdin, execution uses `workspace-write`, and events use JSONL. Never substitute `danger-full-access` or infer authorization from workspace preparation.
 
+After installation or changes to protocol/runtime code, run the deterministic product health check:
+
+```powershell
+northline forward-test --output results/product-forward-test.json
+```
+
+It uses fresh temporary Git repositories and makes no real model calls. Treat it as wiring and invariant evidence, not as proof that a live model follows the Skill or improves task success.
+
 Use `submit_project_escalation`, `decide_project_escalation`, and `revise_project_contract` (or CLI `escalate`, `decide`, and `revise`) when a child needs a new base, wider scope, or a root decision. The CLI returns JSON and exits with an error for invalid schemas, illegal transitions, unsafe identifiers, duplicate receipts, or accidental mission overwrite.

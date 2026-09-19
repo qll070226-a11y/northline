@@ -132,3 +132,7 @@ OpenHands, SWE-agent, MetaGPT, and ChatDev are reference implementations for exe
 - The Codex CLI adapter is implemented; OpenHands and other runtime adapters remain future work.
 - Semantic goal satisfaction remains partly dependent on Root review; deterministic gates cover state, scope, identity, dependency, and evidence claims.
 - Multi-machine scheduling, UI, online learning, and unbounded recursive delegation are out of scope.
+
+## Product forward validation
+
+`northline forward-test` creates five fresh Git repositories and exercises integration, nested delegation, forbidden-file rejection, stale-base rejection, and bounded runtime resume. It records latency plus protocol event/file/byte overhead in a JSON report. The runtime scenario uses a controlled subprocess and records zero real model calls; live-model adherence remains a separate evaluation layer.

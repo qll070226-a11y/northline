@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from . import __version__
 from .engine import ProtocolEngine
+from .forward_testing import run_product_forward_tests
 from .models import MissionState, ProtocolPolicy
 from .runtime import demo_runtime
 
@@ -45,6 +46,8 @@ def main() -> None:
     sub.add_parser("demo", help="run a deterministic Root/Worker verification demo")
     evaluate = sub.add_parser("evaluate", help="write a small reproducible smoke result")
     evaluate.add_argument("--output", type=Path, default=Path("results/demo.json"))
+    forward_test = sub.add_parser("forward-test", help="run isolated product workflows and write measured results")
+    forward_test.add_argument("--output", type=Path, default=Path("results/product-forward-test.json"))
 
     initialize = sub.add_parser("init", help="initialize .northline mission state in a repository")
     initialize.add_argument("--workspace", type=Path, default=Path.cwd())
@@ -175,6 +178,10 @@ def main() -> None:
     revision.add_argument("--request-id", required=True)
     revision.add_argument("--contract", type=Path, required=True)
     args = parser.parse_args()
+
+    if args.command == "forward-test":
+        _print(run_product_forward_tests(args.output))
+        return
 
     if args.command in {"demo", "evaluate"}:
         runtime = demo_runtime()

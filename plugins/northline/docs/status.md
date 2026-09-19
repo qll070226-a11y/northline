@@ -1,6 +1,6 @@
 # Research Artifact Status
 
-Date: 2026-09-18
+Date: 2026-09-19
 
 Primary delivery changed on 2026-09-14: the Codex Skill and Plugin are now the product objective. The paper and experiment harness are supporting research artifacts. See `docs/product-roadmap.md`.
 
@@ -13,6 +13,7 @@ Primary delivery changed on 2026-09-14: the Codex Skill and Plugin are now the p
 - Product v0.4 contract/receipt drafting, actionable resume summaries, and repository policy enforcement
 - Product v0.5 project-schema migration, root-aware task packets, Git-backed interruption checkpoints, and delegation trace reports
 - Product v0.6 explicitly authorized Codex CLI runtime, JSONL/usage evidence, bounded retries, and safe terminal cleanup
+- Product v0.7 deterministic forward suite covers five isolated workflows and records protocol latency, event, file, and byte overhead
 - Framework-neutral protocol types, bounded Root/Worker/Leaf runtime, and Draft 2020-12 schemas
 - Deterministic identity, version, commit, path, test, criterion, dependency, and unresolved-question gates
 - Stop-work escalation, contract revision, stale-receipt rejection, append-only event replay, and Git worktree isolation
@@ -45,7 +46,7 @@ Primary delivery changed on 2026-09-14: the Codex Skill and Plugin are now the p
 
 ## Verified locally
 
-- 87 tests pass across the protocol, persistent engine, CLI/MCP, real Git worktrees, product forward workflows, research runner, controlled tasks, review gates, and statistics
+- 88 tests pass across the protocol, persistent engine, CLI/MCP, real Git worktrees, product forward workflows, research runner, controlled tasks, review gates, and statistics
 - Protocol-engine integration tests cover real commits, detached worktrees, false file claims, false passing-test claims, assigned-workspace enforcement, and integration ancestry
 - Ruff syntax, symbol, and import checks pass
 - Official Skill and Plugin validators pass
@@ -56,6 +57,7 @@ Primary delivery changed on 2026-09-14: the Codex Skill and Plugin are now the p
 - Exact-power results show why 24 public tasks are a pilot, not a confirmatory sample
 - Eight pilot gold patches pass hidden tests and eight empty patches fail in isolated evaluation
 - Eight task-level image contexts are reproducibly prepared with `.git`, `.github`, hidden-test, and oracle paths excluded
+- The first v0.7 product forward run passed 5/5 scenarios in 9.23 seconds, producing 61 protocol events, 55 artifacts, and 42,536 artifact bytes with zero real model calls
 
 ## Candidate, not frozen
 
@@ -64,7 +66,7 @@ The 24 public tasks remain a candidate sensitivity set. They require container-l
 ## External blockers observed
 
 - Codex CLI model preflight fails in this app sandbox because the CLI cannot resolve its home/config directory.
-- The v0.6 personal-plugin source and virtual environment are updated, but `codex plugin add` cannot atomically rewrite the Codex config from this app sandbox; registration must be retried from a normal terminal.
+- The v0.7 personal-plugin source and virtual environment are updated, but `codex plugin add` cannot create its temporary cache directory from this app sandbox; registration must be retried from a normal terminal.
 - Docker client is installed, but this app sandbox is denied access to the user Docker config and `docker_engine` named pipe.
 - The shell cannot currently reach the model API endpoint, so no paid model episode was started.
 
@@ -84,7 +86,7 @@ The 32-task blueprint audit currently blocks expansion because only the eight-ta
 
 ## Next product milestone
 
-Forward-test the updated Skill independently in fresh Codex tasks and measure usability overhead from runtime launch, task packets, checkpoints, contracts, evidence rebuilding, and cleanup. The product remains the primary delivery; the research pipeline below supplies evidence rather than blocking ordinary releases.
+Run independently launched, explicitly authorized Codex tasks against the five product scenarios, compare live traces with the deterministic baseline, and measure token, latency, intervention, and completion overhead. The product remains the primary delivery; the research pipeline below supplies evidence rather than blocking ordinary releases.
 
 ## Next research milestone
 

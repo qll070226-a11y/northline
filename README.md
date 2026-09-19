@@ -38,6 +38,7 @@ Northline 默认采用受约束的 `Root -> Worker -> Leaf` 委派树，最大�
 | 版本迁移 | `.northline/project.json` 标识 schema，旧项目通过显式命令迁移 |
 | 运行适配 | 显式授权后以 `workspace-write` 启动 Codex CLI，保存 JSONL、thread 和 usage |
 | 有界恢复 | 运行失败自动检查点，按策略限制重试次数，过期基线必须升级而非重试 |
+| 产品前向测试 | 在全新隔离仓库中组合验证成功、越界、过期、重试和清理路径，并测量协议开销 |
 | 安全集成 | `VERIFIED` 只授权审查；Root 合并并复测后才记录 `INTEGRATED` |
 
 ## 安装 Plugin
@@ -100,6 +101,14 @@ northline status --workspace .
 
 完整交接流程见 [product-workflow.md](./plugins/northline/skills/northline/references/product-workflow.md)。
 完整系统边界、数据流和信任模型见 [architecture.md](./plugins/northline/docs/architecture.md)。
+
+运行不调用真实模型的产品前向测试：
+
+```powershell
+northline forward-test --output results/product-forward-test.json
+```
+
+场景、指标和解释边界见 [product-forward-testing.md](./plugins/northline/docs/product-forward-testing.md)。
 
 ## MCP 工具
 
@@ -173,6 +182,7 @@ cd plugins\northline
 powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 .\.venv-win\Scripts\python.exe -m pytest -q
 .\.venv-win\Scripts\ruff.exe check .
+.\.venv-win\Scripts\northline.exe forward-test --output results\product-forward-test.json
 powershell -ExecutionPolicy Bypass -File scripts\package_plugin.ps1
 ```
 

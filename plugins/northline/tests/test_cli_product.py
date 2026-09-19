@@ -68,3 +68,18 @@ def test_cli_initializes_contract_and_resumes_status(tmp_path: Path):
     assert schema["schema_version"] == 2
     report = run_cli("report", "--workspace", workspace)
     assert report["metrics"]["contract_count"] == 1
+
+
+def test_cli_forward_test_runs_isolated_measured_workflows(tmp_path: Path):
+    output = tmp_path / "forward-test.json"
+    report = run_cli("forward-test", "--output", str(output))
+    assert output.is_file()
+    assert report["real_model_calls"] == 0
+    assert report["summary"]["scenario_count"] == 5
+    assert report["summary"]["passed"] == 5
+    assert report["summary"]["failed"] == 0
+    assert report["summary"]["protocol_event_count"] > 0
+    scenarios = {item["name"]: item for item in report["scenarios"]}
+    assert "FORBIDDEN_FILE" in scenarios["scope_violation"]["observed"]["blocking_findings"]
+    assert "STALE_BASE" in scenarios["stale_parent"]["observed"]["blocking_findings"]
+    assert scenarios["runtime_retry"]["observed"]["attempt"] == 2

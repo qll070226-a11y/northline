@@ -22,6 +22,11 @@ try {
     foreach ($Directory in @(".codex-plugin", "assets", "skills", "src")) {
         Copy-Item -LiteralPath (Join-Path $ProjectRoot $Directory) -Destination $StageRoot -Recurse
     }
+    $Docs = Join-Path $StageRoot "docs"
+    New-Item -ItemType Directory -Path $Docs -Force | Out-Null
+    foreach ($File in @("architecture.md", "product-forward-testing.md")) {
+        Copy-Item -LiteralPath (Join-Path (Join-Path $ProjectRoot "docs") $File) -Destination $Docs
+    }
     foreach ($File in @(".mcp.json", "LICENSE", "pyproject.toml", "README.md")) {
         Copy-Item -LiteralPath (Join-Path $ProjectRoot $File) -Destination $StageRoot
     }

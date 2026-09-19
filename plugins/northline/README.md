@@ -25,6 +25,7 @@ Northline 是一个面向 Codex 的 Skill 与 Plugin。它把根任务、委派�
 - 用显式 schema 版本和迁移命令维护长期兼容性。
 - 通过最小权限 Codex CLI 适配器执行任务，持久化 thread、JSONL 轨迹与 token usage。
 - 将运行失败转为可恢复检查点，限制最大尝试次数，并安全清理终态 worktree。
+- 在五个隔离 Git 场景中组合验证主流程、递归委派、范围漂移、过期状态和失败恢复，并输出协议开销。
 
 ## 准备本地运行时
 
@@ -43,10 +44,12 @@ powershell -ExecutionPolicy Bypass -File scripts\setup_plugin.ps1
   --criterion "测试全部通过"
 
 .\.venv-plugin\Scripts\northline.exe resume --workspace .
+.\.venv-plugin\Scripts\northline.exe forward-test --output results\product-forward-test.json
 ```
 
 完整 MCP 与 CLI 流程见 [product-workflow.md](./skills/northline/references/product-workflow.md)。
 系统边界、信任模型与数据流见 [architecture.md](./docs/architecture.md)。
+前向场景、指标与解释边界见 [product-forward-testing.md](./docs/product-forward-testing.md)。
 
 ## 状态目录
 
@@ -76,6 +79,7 @@ powershell -ExecutionPolicy Bypass -File scripts\setup_plugin.ps1
 powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 .\.venv-win\Scripts\python.exe -m pytest -q
 .\.venv-win\Scripts\ruff.exe check .
+.\.venv-win\Scripts\northline.exe forward-test --output results\product-forward-test.json
 ```
 
 完整仓库、研究材料与 issue tracker：<https://github.com/qll070226-a11y/northline>

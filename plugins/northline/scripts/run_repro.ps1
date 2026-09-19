@@ -31,6 +31,7 @@ try {
     Invoke-CheckedPython @("experiments\power_analysis.py", "--output", "results\power-analysis.json")
     Invoke-CheckedPython @("scripts\environment_report.py")
     Invoke-CheckedPython @("-m", "northline.cli", "demo")
+    Invoke-CheckedPython @("-m", "northline.cli", "forward-test", "--output", "results\product-forward-test.json")
 } finally {
     Pop-Location
 }
