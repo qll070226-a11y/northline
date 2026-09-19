@@ -14,6 +14,8 @@ Primary delivery changed on 2026-09-14: the Codex Skill and Plugin are now the p
 - Product v0.5 project-schema migration, root-aware task packets, Git-backed interruption checkpoints, and delegation trace reports
 - Product v0.6 explicitly authorized Codex CLI runtime, JSONL/usage evidence, bounded retries, and safe terminal cleanup
 - Product v0.7 deterministic forward suite covers five isolated workflows and records protocol latency, event, file, and byte overhead
+- Product v0.8 live forward runner defaults to a zero-call preflight and requires explicit Root authorization before launching Codex CLI
+- Live reports preserve contract/run identity, JSONL paths, token usage, latency, checkpoints, explicit model-exposure status, and a unit-aware deterministic-baseline comparison
 - Framework-neutral protocol types, bounded Root/Worker/Leaf runtime, and Draft 2020-12 schemas
 - Deterministic identity, version, commit, path, test, criterion, dependency, and unresolved-question gates
 - Stop-work escalation, contract revision, stale-receipt rejection, append-only event replay, and Git worktree isolation
@@ -46,7 +48,7 @@ Primary delivery changed on 2026-09-14: the Codex Skill and Plugin are now the p
 
 ## Verified locally
 
-- 88 tests pass across the protocol, persistent engine, CLI/MCP, real Git worktrees, product forward workflows, research runner, controlled tasks, review gates, and statistics
+- 91 tests pass across the protocol, persistent engine, CLI/MCP, real Git worktrees, deterministic and live forward workflows, research runner, controlled tasks, review gates, and statistics
 - Protocol-engine integration tests cover real commits, detached worktrees, false file claims, false passing-test claims, assigned-workspace enforcement, and integration ancestry
 - Ruff syntax, symbol, and import checks pass
 - Official Skill and Plugin validators pass
@@ -66,7 +68,7 @@ The 24 public tasks remain a candidate sensitivity set. They require container-l
 ## External blockers observed
 
 - Codex CLI model preflight fails in this app sandbox because the CLI cannot resolve its home/config directory.
-- The v0.7 personal-plugin source and virtual environment are updated, but `codex plugin add` cannot create its temporary cache directory from this app sandbox; registration must be retried from a normal terminal.
+- The v0.8 personal-plugin source and virtual environment are updated, but `codex plugin add` cannot create its temporary CODEX_HOME file from this app sandbox; `codex plugin list` still reports `northline@personal` as not installed, so registration must be retried from a normal terminal.
 - Docker client is installed, but this app sandbox is denied access to the user Docker config and `docker_engine` named pipe.
 - The shell cannot currently reach the model API endpoint, so no paid model episode was started.
 
@@ -86,7 +88,7 @@ The 32-task blueprint audit currently blocks expansion because only the eight-ta
 
 ## Next product milestone
 
-Run independently launched, explicitly authorized Codex tasks against the five product scenarios, compare live traces with the deterministic baseline, and measure token, latency, intervention, and completion overhead. The product remains the primary delivery; the research pipeline below supplies evidence rather than blocking ordinary releases.
+Run the first explicitly authorized live contract in a normal terminal, then complete parent verification and integration. Repeat the paired deterministic/live procedure across representative bug-fix, API-change, test-completion, and refactor tasks, and aggregate token, latency, checkpoint, rejection, and completion outcomes. The product remains the primary delivery; the research pipeline below supplies evidence rather than blocking ordinary releases.
 
 ## Next research milestone
 

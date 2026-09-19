@@ -24,6 +24,7 @@ Ship a useful Codex Skill and Plugin that reduce long-task drift in everyday rep
 - `0.5.0`: schema migration, persisted Worker/Leaf dispatch packets, Git-backed interruption checkpoints, and delegation trace reports.
 - `0.6.0`: explicitly authorized Codex CLI execution, persisted runtime evidence, bounded retry, and safe terminal worktree cleanup.
 - `0.7.0`: isolated product forward suite, measured protocol overhead, and release-gated composition checks without implicit model spend.
+- `0.8.0`: explicitly authorized live forward-test reports with model-free preflight, Codex JSONL/token evidence, and honest deterministic-baseline comparison.
 - `1.0.0`: independently forward-tested workflows, cross-platform installer, and measured product evaluation.
 
 ## Secondary research track

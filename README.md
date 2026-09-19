@@ -106,9 +106,10 @@ northline status --workspace .
 
 ```powershell
 northline forward-test --output results/product-forward-test.json
+northline live-forward-test --workspace . --contract-id CONTRACT_ID --output results/live-forward-test.json
 ```
 
-场景、指标和解释边界见 [product-forward-testing.md](./plugins/northline/docs/product-forward-testing.md)。
+场景、指标和解释边界见 [product-forward-testing.md](./plugins/northline/docs/product-forward-testing.md)，真实 Codex 任务的显式授权与轨迹证据见 [live-forward-testing.md](./plugins/northline/docs/live-forward-testing.md)。
 
 ## MCP 工具
 

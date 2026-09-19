@@ -9,6 +9,7 @@ from uuid import uuid4
 from . import __version__
 from .engine import ProtocolEngine
 from .forward_testing import run_product_forward_tests
+from .live_testing import run_live_forward_test
 from .models import MissionState, ProtocolPolicy
 from .runtime import demo_runtime
 
@@ -48,6 +49,15 @@ def main() -> None:
     evaluate.add_argument("--output", type=Path, default=Path("results/demo.json"))
     forward_test = sub.add_parser("forward-test", help="run isolated product workflows and write measured results")
     forward_test.add_argument("--output", type=Path, default=Path("results/product-forward-test.json"))
+    live_test = sub.add_parser("live-forward-test", help="preflight or run one explicitly authorized Codex contract")
+    live_test.add_argument("--workspace", type=Path, default=Path.cwd())
+    live_test.add_argument("--contract-id", required=True)
+    live_test.add_argument("--output", type=Path, default=Path("results/live-forward-test.json"))
+    live_test.add_argument("--authorize", action="store_true")
+    live_test.add_argument("--model", default=None)
+    live_test.add_argument("--timeout-seconds", type=float, default=3600)
+    live_test.add_argument("--resume-previous", action="store_true")
+    live_test.add_argument("--baseline", type=Path, default=None)
 
     initialize = sub.add_parser("init", help="initialize .northline mission state in a repository")
     initialize.add_argument("--workspace", type=Path, default=Path.cwd())
@@ -181,6 +191,20 @@ def main() -> None:
 
     if args.command == "forward-test":
         _print(run_product_forward_tests(args.output))
+        return
+    if args.command == "live-forward-test":
+        _print(
+            run_live_forward_test(
+                args.workspace,
+                args.contract_id,
+                args.output,
+                authorized=args.authorize,
+                model=args.model,
+                timeout_seconds=args.timeout_seconds,
+                resume_previous=args.resume_previous,
+                baseline=args.baseline,
+            )
+        )
         return
 
     if args.command in {"demo", "evaluate"}:

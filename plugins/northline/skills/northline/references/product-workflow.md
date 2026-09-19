@@ -105,4 +105,14 @@ northline forward-test --output results/product-forward-test.json
 
 It uses fresh temporary Git repositories and makes no real model calls. Treat it as wiring and invariant evidence, not as proof that a live model follows the Skill or improves task success.
 
+## Live forward test
+
+For a prepared contract, first run the model-free preflight:
+
+```text
+northline live-forward-test --workspace REPO --contract-id CONTRACT_ID --output results/live-forward-test.json
+```
+
+Only Root may add `--authorize` to start Codex CLI. Optionally pass the deterministic report with `--baseline`. A successful live turn advances only to `REPORTING`; it never authorizes integration. Inspect the receipt, verifier findings, diff, and post-integration tests before recording `INTEGRATED`.
+
 Use `submit_project_escalation`, `decide_project_escalation`, and `revise_project_contract` (or CLI `escalate`, `decide`, and `revise`) when a child needs a new base, wider scope, or a root decision. The CLI returns JSON and exits with an error for invalid schemas, illegal transitions, unsafe identifiers, duplicate receipts, or accidental mission overwrite.
