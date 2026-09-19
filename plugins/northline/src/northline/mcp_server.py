@@ -4,6 +4,9 @@ from typing import Any
 
 from .detector import DriftDetector
 from .engine import ProtocolEngine
+from .health import northline_health_check as _northline_health_check
+from .health import preflight_live_forward_test as _preflight_live_forward_test
+from .health import run_product_forward_test as _run_product_forward_test
 from .models import DelegationContract, HandoffReceipt, HandoffStatus, MissionState
 from .schema import validate_payload
 from .scope import assess_parallel_safety
@@ -76,6 +79,27 @@ def create_server():
         validate_payload("contract", right_contract)
         result = assess_parallel_safety(DelegationContract.from_dict(left_contract), DelegationContract.from_dict(right_contract))
         return {"safe": result.safe, "reasons": list(result.reasons)}
+
+    @server.tool(description="Run Northline's isolated deterministic product forward suite without making model calls.")
+    def run_product_forward_test(output: str) -> dict[str, Any]:
+        return _run_product_forward_test(output)
+
+    @server.tool(description="Run a prepared live contract's model-free preflight; this never authorizes or starts Codex.")
+    def preflight_live_forward_test(
+        workspace: str,
+        contract_id: str,
+        output: str,
+        baseline: str | None = None,
+    ) -> dict[str, Any]:
+        return _preflight_live_forward_test(workspace, contract_id, output, baseline=baseline)
+
+    @server.tool(description="Check Northline version, dependencies, workspace state, and optionally the deterministic suite.")
+    def northline_health_check(
+        workspace: str | None = None,
+        output: str | None = None,
+        run_forward: bool = False,
+    ) -> dict[str, Any]:
+        return _northline_health_check(workspace, output=output, run_forward=run_forward)
 
     @server.tool(description="Initialize a repository-local .northline mission. Existing missions require explicit overwrite.")
     def initialize_project(

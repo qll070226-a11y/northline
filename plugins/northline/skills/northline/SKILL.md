@@ -9,6 +9,8 @@ Protect the user's root objective across long implementation and debugging chain
 
 ## Start or resume
 
+Before starting a substantial task, call `northline_health_check` with `run_forward=true` when the MCP server is available. It confirms the installed version, required dependencies, workspace state, and the deterministic product suite without starting a model. If MCP is unavailable, use the CLI `northline forward-test` as the fallback.
+
 For a substantial task, inspect `get_project_schema` and actionable state with `get_project_resume`. Migrate a legacy project with `migrate_project` before using dispatch or checkpoint features. If no mission exists, initialize one with `initialize_project`, preserving the user's objective, constraints, acceptance criteria, current commit, maximum depth 2, at most 4 children per parent, and the default strict policy. If a mission exists, follow its recommended actions rather than silently replacing it.
 
 Do not relax isolation, clean-evidence, required-test, changed-file, or timeout policies unless the user or Root explicitly accepts that tradeoff.
@@ -46,6 +48,8 @@ Reject or revise work when the receipt is stale, out of scope, assigned to anoth
 When completion requires a newer base, wider scope, or conflict with a root constraint, stop work and use the escalation protocol. Root decides; root-constraint changes also require explicit user approval. Approval creates contract version `n+1` at current parent HEAD, and old receipts remain invalid.
 
 Use `get_project_report` when Root needs the complete delegation tree, event timeline, verification summaries, and protocol overhead counts. Read [references/escalation.md](references/escalation.md) when an escalation is needed. Read [references/product-workflow.md](references/product-workflow.md) when using the MCP/CLI interfaces or inspecting `.northline/` artifacts.
+
+For a prepared contract, call `preflight_live_forward_test` before considering a live run. It always returns an authorization-required, model-free report. Only an explicit Root decision may call `run_codex_project_agent` with `authorized_by_root=true`; the preflight tool never escalates authorization on its own.
 
 After an execution is `integrated` or intentionally `rejected`, use `cleanup_project_workspace` only with explicit Root confirmation. Never remove the root workspace, an active worktree, or a worktree with uncommitted changes.
 

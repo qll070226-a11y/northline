@@ -30,20 +30,22 @@ Source files are never changed by verification. A verification record contains `
 
 ## MCP flow
 
+0. `northline_health_check(workspace, run_forward=true)` to verify the installed version, MCP dependencies, repository state, and deterministic suite. It never starts a model call.
 1. `get_project_schema(workspace)` and `get_project_resume(workspace)` to recover schema, mission, blockers, stale work, and next actions.
 2. Use `migrate_project(workspace)` for a supported legacy schema, or `initialize_project(workspace, mission, policy)` when uninitialized.
 3. `draft_project_contract(...)` to fill protocol-owned fields; Root reviews the scope and tests.
 4. `delegate_project_task(workspace, contract, agent_id, role)` to persist the reviewed contract and assignment.
 5. `prepare_project_workspace(workspace, contract_id, target)` to create a detached worktree at the contract base.
-6. For manual dispatch, use `create_agent_task_packet(workspace, contract_id)`. For an explicitly authorized Codex CLI run, use `run_codex_project_agent`; it persists the same packet and runtime evidence.
-7. `check_parallel_safety(left_contract, right_contract)` before concurrency.
-8. Manual runtimes use `transition_project_handoff` through `claimed` and `executing`. The Codex adapter advances these states itself. Use `record_agent_checkpoint` before interruption or when blocked.
-9. Transition to `reporting`, then use `draft_project_receipt(...)` to observe the result commit, diff, and tests while preserving child-authored semantic evidence.
-10. `verify_project_handoff(workspace, contract_id, receipt, evidence_workspace)` to independently rebuild Git/test evidence.
-11. Root reviews the verified diff and integrates the result commit with Git.
-12. `record_project_integration(workspace, contract_id)` verifies parent HEAD and integration tests before recording completion.
-13. `get_project_report(workspace)` and `get_project_resume(workspace)` to confirm completion or identify the next blocker.
-14. After terminal completion or rejection, call `cleanup_project_workspace` only with Root confirmation and a clean worktree.
+6. For manual dispatch, use `create_agent_task_packet(workspace, contract_id)`. For a model-free live check, use `preflight_live_forward_test(workspace, contract_id, output)`; it always returns `authorization_required`.
+7. For an explicitly authorized Codex CLI run, use `run_codex_project_agent`; it persists the same packet and runtime evidence.
+8. `check_parallel_safety(left_contract, right_contract)` before concurrency.
+9. Manual runtimes use `transition_project_handoff` through `claimed` and `executing`. The Codex adapter advances these states itself. Use `record_agent_checkpoint` before interruption or when blocked.
+10. Transition to `reporting`, then use `draft_project_receipt(...)` to observe the result commit, diff, and tests while preserving child-authored semantic evidence.
+11. `verify_project_handoff(workspace, contract_id, receipt, evidence_workspace)` to independently rebuild Git/test evidence.
+12. Root reviews the verified diff and integrates the result commit with Git.
+13. `record_project_integration(workspace, contract_id)` verifies parent HEAD and integration tests before recording completion.
+14. `get_project_report(workspace)` and `get_project_resume(workspace)` to confirm completion or identify the next blocker.
+15. After terminal completion or rejection, call `cleanup_project_workspace` only with Root confirmation and a clean worktree.
 
 The stateless `validate_handoff` tool is useful for previewing a receipt without recording it. `check_transition` validates protocol state transitions.
 
