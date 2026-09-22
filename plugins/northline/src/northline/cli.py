@@ -9,6 +9,7 @@ from uuid import uuid4
 from . import __version__
 from .engine import ProtocolEngine
 from .forward_testing import run_product_forward_tests
+from .health import northline_health_check
 from .live_testing import run_live_forward_test
 from .models import MissionState, ProtocolPolicy
 from .runtime import demo_runtime
@@ -49,6 +50,11 @@ def main() -> None:
     evaluate.add_argument("--output", type=Path, default=Path("results/demo.json"))
     forward_test = sub.add_parser("forward-test", help="run isolated product workflows and write measured results")
     forward_test.add_argument("--output", type=Path, default=Path("results/product-forward-test.json"))
+    health = sub.add_parser("health", help="check local dependencies, workspace state, and optional Codex readiness")
+    health.add_argument("--workspace", type=Path, default=None)
+    health.add_argument("--output", type=Path, default=None)
+    health.add_argument("--check-runtime", action="store_true")
+    health.add_argument("--run-forward", action="store_true")
     live_test = sub.add_parser("live-forward-test", help="preflight or run one explicitly authorized Codex contract")
     live_test.add_argument("--workspace", type=Path, default=Path.cwd())
     live_test.add_argument("--contract-id", required=True)
@@ -191,6 +197,16 @@ def main() -> None:
 
     if args.command == "forward-test":
         _print(run_product_forward_tests(args.output))
+        return
+    if args.command == "health":
+        _print(
+            northline_health_check(
+                workspace=args.workspace,
+                output=args.output,
+                run_forward=args.run_forward,
+                check_runtime=args.check_runtime,
+            )
+        )
         return
     if args.command == "live-forward-test":
         _print(

@@ -83,3 +83,13 @@ def test_cli_forward_test_runs_isolated_measured_workflows(tmp_path: Path):
     assert "FORBIDDEN_FILE" in scenarios["scope_violation"]["observed"]["blocking_findings"]
     assert "STALE_BASE" in scenarios["stale_parent"]["observed"]["blocking_findings"]
     assert scenarios["runtime_retry"]["observed"]["attempt"] == 2
+
+
+def test_cli_health_writes_model_free_report(tmp_path: Path):
+    output = tmp_path / "health.json"
+    report = run_cli("health", "--output", str(output), "--run-forward")
+    assert output.is_file()
+    assert report["report_type"] == "northline_health_check"
+    assert report["real_model_calls"] == 0
+    assert report["forward_test"]["passed"] is True
+    assert report["runtime"] is None
