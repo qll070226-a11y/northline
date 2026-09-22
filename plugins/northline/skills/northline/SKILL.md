@@ -33,6 +33,8 @@ Before interruption, context handoff, or blocked work, call `record_agent_checkp
 
 Use `run_codex_project_agent` only after the user or Root explicitly authorizes an external model run. It invokes Codex CLI with the `workspace-write` sandbox, persists JSONL events, usage, thread id, and final output, and never authorizes integration. A successful run enters `reporting`; a failed run enters `partial` with a technical checkpoint. Use `retry_project_execution` only when its checkpoint still matches the worktree and the project attempt limit is not exhausted. Resume the previous Codex thread when continuity is useful; escalate instead when the parent HEAD or contract scope changed.
 
+Before an authorized run, call `northline_health_check(check_runtime=true)` or use the runtime preflight. It does not start a model. If CLI/auth/provider readiness fails, stop and fix the environment; do not retry blindly. A process that emits no JSONL events or is interrupted must be recorded as `PARTIAL`, never as completed.
+
 Use `check_parallel_safety` before parallel work. File disjointness alone is insufficient when contracts share APIs, schemas, migrations, or ordering dependencies. Root may create Workers; an authorized Worker may create Leafs; Leafs do not delegate.
 
 ## Receive and verify

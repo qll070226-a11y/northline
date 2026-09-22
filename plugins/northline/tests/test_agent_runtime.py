@@ -3,6 +3,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import northline.agent_runtime as agent_runtime
 from northline.agent_runtime import CodexCliRuntime
 
 
@@ -90,3 +91,35 @@ def test_codex_runtime_records_failed_event_and_resume_command(tmp_path: Path):
     assert "workspace-write" in result.command
     assert str(workspace.resolve()) in result.command
     assert "thread_existing" in result.command
+
+
+def test_codex_runtime_preflight_accepts_environment_auth(monkeypatch):
+    calls = []
+
+    def probe(command, **kwargs):
+        calls.append(command)
+        if command[-2:] == ["login", "status"]:
+            return subprocess.CompletedProcess(command, 1, stdout="Not logged in", stderr="")
+        if command[-1] == "doctor":
+            return subprocess.CompletedProcess(command, 0, stdout="all checks passed", stderr="")
+        return subprocess.CompletedProcess(command, 0, stdout="codex 0.1", stderr="")
+
+    monkeypatch.setenv("CODEX_API_KEY", "test-only")
+    monkeypatch.setattr(agent_runtime.subprocess, "run", probe)
+    report = CodexCliRuntime(executable="codex").preflight(timeout_seconds=2)
+    assert report["ready"] is True
+    assert report["auth_source"] == "environment"
+    assert len(calls) == 3
+
+
+def test_codex_runtime_preflight_blocks_unreachable_provider(monkeypatch):
+    def probe(command, **kwargs):
+        if command[-1] == "doctor":
+            return subprocess.CompletedProcess(command, 1, stdout="reachability one or more required provider endpoints are unreachable", stderr="")
+        return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
+
+    monkeypatch.setenv("CODEX_API_KEY", "test-only")
+    monkeypatch.setattr(agent_runtime.subprocess, "run", probe)
+    report = CodexCliRuntime(executable="codex").preflight(timeout_seconds=2)
+    assert report["ready"] is False
+    assert report["provider_reachable"] is False

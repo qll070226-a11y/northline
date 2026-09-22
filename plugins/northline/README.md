@@ -28,6 +28,7 @@ Northline 是一个面向 Codex 的 Skill 与 Plugin。它把根任务、委派�
 - 在五个隔离 Git 场景中组合验证主流程、递归委派、范围漂移、过期状态和失败恢复，并输出协议开销。
 - 对已准备的契约执行默认零模型调用的真实任务预检；只有显式 `--authorize` 才启动 Codex，并记录 token、耗时、JSONL 和人工介入。
 - 通过 MCP 暴露产品前向测试、live 预检和统一健康检查，使新 Codex 任务可以不依赖手工 CLI 完成自验证。
+- v0.9.1 在授权运行前检查 CLI、认证和 provider 可达性，并实时持久化 JSONL；无事件超时会收敛为 `PARTIAL`，不会留下假 `RUNNING`。
 
 ## 准备本地运行时
 
@@ -52,6 +53,8 @@ powershell -ExecutionPolicy Bypass -File scripts\setup_plugin.ps1
 ```
 
 完整 MCP 与 CLI 流程见 [product-workflow.md](./skills/northline/references/product-workflow.md)。
+
+授权运行前可调用 `northline_health_check(check_runtime=true)` 查看 Codex runtime readiness。该检查不会启动模型，只运行 CLI 版本、认证状态和 `codex doctor` 检查。
 系统边界、信任模型与数据流见 [architecture.md](./docs/architecture.md)。
 前向场景、指标与解释边界见 [product-forward-testing.md](./docs/product-forward-testing.md)。
 真实 Codex 任务的授权、证据与解释边界见 [live-forward-testing.md](./docs/live-forward-testing.md)。

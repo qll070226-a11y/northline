@@ -1,6 +1,6 @@
 # Live Forward Testing
 
-Northline v0.9 adds MCP wrappers around the independently invocable live-test layer and deterministic product suite. The live-test layer remains intentionally separate from the deterministic `forward-test` suite.
+Northline v0.9.1 adds MCP wrappers around the independently invocable live-test layer and deterministic product suite. The live-test layer remains intentionally separate from the deterministic `forward-test` suite.
 
 ## Safety boundary
 
@@ -14,6 +14,8 @@ northline live-forward-test --workspace . --contract-id CONTRACT_ID `
 The report returns `status=authorization_required` and `real_model_calls=false`. A Codex CLI process can start only when Root adds `--authorize`:
 
 The MCP equivalent is `preflight_live_forward_test(workspace, contract_id, output, baseline?)`; it is always model-free and cannot authorize a run.
+
+Before an authorized run, `northline_health_check(check_runtime=true)` performs a model-free runtime readiness check. It records CLI version, authentication source, provider reachability, and diagnostic output. A failed readiness check blocks model launch and records a `PARTIAL` checkpoint.
 
 ```powershell
 northline live-forward-test --workspace . --contract-id CONTRACT_ID `
@@ -32,6 +34,7 @@ Each report includes:
 - contract, version, base commit, assigned worktree, and resume mode;
 - elapsed time and Codex token usage;
 - Codex JSONL event count and Northline checkpoint count; manual intervention remains `null` until supplied by a higher-level evaluator;
+- JSONL events are written incrementally while the process runs, so a stalled or interrupted process remains diagnosable;
 - the persisted agent-run record, final message, and execution state;
 - an optional deterministic-baseline comparison.
 

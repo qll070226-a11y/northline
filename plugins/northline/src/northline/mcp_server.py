@@ -98,8 +98,11 @@ def create_server():
         workspace: str | None = None,
         output: str | None = None,
         run_forward: bool = False,
+        check_runtime: bool = False,
     ) -> dict[str, Any]:
-        return _northline_health_check(workspace, output=output, run_forward=run_forward)
+        return _northline_health_check(
+            workspace, output=output, run_forward=run_forward, check_runtime=check_runtime
+        )
 
     @server.tool(description="Initialize a repository-local .northline mission. Existing missions require explicit overwrite.")
     def initialize_project(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -165,6 +166,23 @@ class ProtocolEngine:
             final_message_path=str(final_path),
         )
         self.store.save_agent_run(running.to_dict())
+        if runtime is None:
+            readiness = runtime_adapter.preflight(timeout_seconds=min(30, timeout_seconds))
+            if not readiness["ready"]:
+                error = "Codex runtime preflight failed: " + json.dumps(readiness, ensure_ascii=True)
+                stored = self.store.update_agent_run(
+                    run_id,
+                    {"status": AgentRunStatus.FAILED.value, "returncode": 125, "error": error, "usage": {}},
+                )
+                self.transition(contract_id, HandoffStatus.PARTIAL.value)
+                self.record_agent_checkpoint(
+                    contract_id,
+                    completed=(),
+                    pending=("restore Codex provider reachability or authentication", "retry the assigned task"),
+                    blockers=(error[-2000:],),
+                    notes=(f"runtime preflight blocked run {run_id} before model launch",),
+                )
+                return {"run": stored, "execution": self.store.read_execution(contract_id)}
         self.transition(contract_id, HandoffStatus.CLAIMED.value)
         self.transition(contract_id, HandoffStatus.EXECUTING.value)
         try:

@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from .agent_runtime import CodexCliRuntime
 from .engine import ProtocolEngine
 from .forward_testing import run_product_forward_tests
 from .live_testing import run_live_forward_test
@@ -41,6 +42,7 @@ def northline_health_check(
     workspace: str | Path | None = None,
     output: str | Path | None = None,
     run_forward: bool = False,
+    check_runtime: bool = False,
 ) -> dict[str, Any]:
     """Report runtime capabilities without starting a model or changing source files."""
 
@@ -70,7 +72,13 @@ def northline_health_check(
         },
         "workspace": None,
         "forward_test": None,
+        "runtime": None,
     }
+
+    if check_runtime:
+        runtime = CodexCliRuntime()
+        report["runtime"] = runtime.preflight(timeout_seconds=30)
+        report["healthy"] = report["healthy"] and bool(report["runtime"]["ready"])
 
     if workspace_path is not None:
         workspace_info: dict[str, Any] = {
