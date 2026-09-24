@@ -47,28 +47,46 @@ class CodexCliRuntime:
             raise ValueError("preflight timeout must be positive")
         version = self._probe([self.executable, "--version"], timeout_seconds)
         login = self._probe([self.executable, "login", "status"], timeout_seconds)
-        doctor = self._probe([self.executable, "doctor"], timeout_seconds)
+        doctor = self._probe([self.executable, "doctor", "--json"], timeout_seconds)
         auth_source = "environment" if any(os.environ.get(name) for name in ("CODEX_API_KEY", "OPENAI_API_KEY")) else "cli"
-        combined = f"{doctor['stdout']}\n{doctor['stderr']}".lower()
-        provider_reachable = doctor["returncode"] == 0 and not any(
-            marker in combined
-            for marker in (
-                "endpoint.*unreachable",
-                "unreachable over http",
-                "websocket.*timed out",
-                "handshake timed out",
-                "reachability.*fail",
-            )
+        try:
+            payload = json.loads(doctor["stdout"])
+        except (ValueError, TypeError):
+            payload = None
+        checks = payload.get("checks") if isinstance(payload, dict) and payload.get("schemaVersion") == 1 else None
+        valid_report = isinstance(checks, dict) and all(isinstance(item, dict) for item in checks.values())
+        checks = checks if valid_report else {}
+        required = ("config.load", "auth.credentials", "network.provider_reachability")
+        blockers = [name for name in required if checks.get(name, {}).get("status") != "ok"]
+        if not valid_report:
+            blockers.insert(0, "doctor.invalid_report")
+        if doctor["returncode"] not in (0, 1):
+            blockers.append("doctor.execution_failed")
+        critical_categories = {"config", "auth", "reachability", "sandbox", "install"}
+        blockers.extend(
+            name for name, item in checks.items()
+            if item.get("category") in critical_categories and item.get("status") == "fail" and name not in blockers
         )
+        if version["returncode"] != 0:
+            blockers.append("cli.version_failed")
+        provider_reachable = checks.get("network.provider_reachability", {}).get("status") == "ok"
+        auth_configured = checks.get("auth.credentials", {}).get("status") == "ok"
+        # Persist status codes only. Even login status may contain a partial API key.
+        check_statuses = {name: item.get("status", "unknown") for name, item in checks.items()}
         return {
-            "ready": version["returncode"] == 0 and (login["returncode"] == 0 or auth_source == "environment") and provider_reachable,
+            "ready": not blockers,
             "executable": self.executable,
             "version": (version["stdout"] or version["stderr"]).strip()[-500:],
-            "login_status": (login["stdout"] or login["stderr"]).strip()[-1000:],
+            "login_status": "configured" if login["returncode"] == 0 else "not_confirmed",
             "auth_source": auth_source,
+            "auth_configured": auth_configured,
+            "authentication_verified": False,
+            "readiness_scope": "local_configuration_and_transport_only",
             "provider_reachable": provider_reachable,
             "doctor_status": doctor["returncode"],
-            "doctor_output": (doctor["stdout"] or doctor["stderr"]).strip()[-3000:],
+            "doctor_output": json.dumps(check_statuses, sort_keys=True),
+            "checks": check_statuses,
+            "blockers": blockers,
         }
 
     def execute(

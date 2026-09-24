@@ -100,8 +100,8 @@ def test_codex_runtime_preflight_accepts_environment_auth(monkeypatch):
         calls.append(command)
         if command[-2:] == ["login", "status"]:
             return subprocess.CompletedProcess(command, 1, stdout="Not logged in", stderr="")
-        if command[-1] == "doctor":
-            return subprocess.CompletedProcess(command, 0, stdout="all checks passed", stderr="")
+        if command[-2:] == ["doctor", "--json"]:
+            return subprocess.CompletedProcess(command, 0, stdout=json.dumps(doctor_report()), stderr="")
         return subprocess.CompletedProcess(command, 0, stdout="codex 0.1", stderr="")
 
     monkeypatch.setenv("CODEX_API_KEY", "test-only")
@@ -114,8 +114,10 @@ def test_codex_runtime_preflight_accepts_environment_auth(monkeypatch):
 
 def test_codex_runtime_preflight_blocks_unreachable_provider(monkeypatch):
     def probe(command, **kwargs):
-        if command[-1] == "doctor":
-            return subprocess.CompletedProcess(command, 1, stdout="reachability one or more required provider endpoints are unreachable", stderr="")
+        if command[-2:] == ["doctor", "--json"]:
+            report = doctor_report()
+            report["checks"]["network.provider_reachability"]["status"] = "fail"
+            return subprocess.CompletedProcess(command, 1, stdout=json.dumps(report), stderr="")
         return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
 
     monkeypatch.setenv("CODEX_API_KEY", "test-only")
@@ -123,3 +125,33 @@ def test_codex_runtime_preflight_blocks_unreachable_provider(monkeypatch):
     report = CodexCliRuntime(executable="codex").preflight(timeout_seconds=2)
     assert report["ready"] is False
     assert report["provider_reachable"] is False
+
+
+def test_codex_runtime_preflight_accepts_reachable_provider_with_noncritical_doctor_warning(monkeypatch):
+    def probe(command, **kwargs):
+        if command[-2:] == ["doctor", "--json"]:
+            report = doctor_report()
+            report["overallStatus"] = "fail"
+            report["checks"]["terminal.env"] = {"category": "terminal", "status": "fail"}
+            return subprocess.CompletedProcess(command, 1, stdout=json.dumps(report), stderr="")
+        if command[-2:] == ["login", "status"]:
+            return subprocess.CompletedProcess(command, 1, stdout="Not logged in", stderr="")
+        return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
+
+    monkeypatch.setenv("CODEX_API_KEY", "test-only")
+    monkeypatch.setattr(agent_runtime.subprocess, "run", probe)
+    report = CodexCliRuntime(executable="codex").preflight(timeout_seconds=2)
+    assert report["ready"] is True
+    assert report["provider_reachable"] is True
+
+
+def doctor_report() -> dict:
+    return {
+        "schemaVersion": 1,
+        "overallStatus": "ok",
+        "checks": {
+            "config.load": {"category": "config", "status": "ok"},
+            "auth.credentials": {"category": "auth", "status": "ok"},
+            "network.provider_reachability": {"category": "reachability", "status": "ok"},
+        },
+    }

@@ -1,6 +1,6 @@
 # Live Forward Testing
 
-Northline v0.9.2 adds MCP wrappers around the independently invocable live-test layer and deterministic product suite. The live-test layer remains intentionally separate from the deterministic `forward-test` suite.
+Northline v0.9.3 adds MCP wrappers around the independently invocable live-test layer and deterministic product suite. The live-test layer remains intentionally separate from the deterministic `forward-test` suite.
 
 ## Safety boundary
 
@@ -24,6 +24,10 @@ northline health --check-runtime --output results\northline-health.json
 ```
 
 Use `--run-forward` to add the deterministic product suite. A report with `runtime.ready=false` is an environment/provider readiness failure, not evidence that a Codex task started.
+
+Runtime readiness uses `codex doctor --json` schema version 1. Configuration, credential presence, and provider reachability must each explicitly pass; missing or malformed checks block execution. Terminal-only failures do not block non-interactive execution. Raw login output is not persisted because it can include credential fragments.
+
+`ready=true` means local configuration and transport checks passed. It does not validate the token, model access, billing, or inference. `authentication_verified=false` remains explicit in this model-free report. HTTP 401 proves only that an HTTP response was received; it is not successful authentication. Never synthesize probe responses to make a readiness check pass.
 
 ```powershell
 northline live-forward-test --workspace . --contract-id CONTRACT_ID `
