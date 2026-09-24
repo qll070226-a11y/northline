@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/northline-logo.png" width="160" alt="Northline logo">
+  <img src="./assets/northline-logo-final.png" width="160" alt="Northline logo">
 </p>
 
 <h1 align="center">Northline</h1>

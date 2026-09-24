@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./plugins/northline/assets/northline-logo.png" width="168" alt="Northline logo">
+  <img src="./plugins/northline/assets/northline-logo-final.png" width="168" alt="Northline logo">
 </p>
 
 <h1 align="center">Northline</h1>
@@ -34,8 +34,6 @@ Northline 是一个面向 Codex 的 Skill 与 Plugin，用持久化任务主线�
 ## 总体架构
 
 ![Northline detailed system architecture](./plugins/northline/assets/northline-architecture.svg)
-
-图中保留了完整的控制面、运行时适配、Root/Worker/Leaf 委派树、隔离 worktree、三类证据、验证引擎、父侧审查、Root-only 集成、全局验收和研究事件存储。它使用 SVG 绘制，适合在 GitHub 页面中放大查看。
 
 ## 核心协议
 

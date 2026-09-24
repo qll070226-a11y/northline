@@ -1,6 +1,6 @@
 {
   "name": "northline",
-  "version": "0.9.3+codex.20260924114951",
+  "version": "0.9.3+codex.20260924120800",
   "description": "Keep long-running software work aligned through verifiable delegation and evidence-gated handoffs.",
   "author": {
     "name": "qll070226-a11y",
@@ -34,8 +34,8 @@
       "Resume the current mission and show blocked work."
     ],
     "brandColor": "#0EA5E9",
-    "composerIcon": "./assets/northline-icon.png",
-    "logo": "./assets/northline-logo.png",
-    "logoDark": "./assets/northline-logo.png"
+    "composerIcon": "./assets/northline-icon-final.png",
+    "logo": "./assets/northline-logo-final.png",
+    "logoDark": "./assets/northline-logo-final.png"
   }
 }
