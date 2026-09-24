@@ -1,5 +1,7 @@
 # Northline Architecture
 
+The source for the scalable GitHub architecture diagram is [`architecture.mmd`](./architecture.mmd). The repository README embeds the same model as Mermaid so GitHub renders it as a zoomable SVG.
+
 ## Product boundary
 
 Northline is a repository-local control plane for long-running coding-agent work. It does not replace Codex, an agent runtime, Git, or the test runner. It defines what may be delegated, persists the state of that delegation, rebuilds evidence independently, and prevents an unverified result from being recorded as integrated.
