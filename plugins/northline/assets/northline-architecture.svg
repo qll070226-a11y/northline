@@ -1,0 +1,194 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1960" viewBox="0 0 1800 1960" role="img" aria-labelledby="title desc">
+  <title id="title">Northline detailed system architecture</title>
+  <desc id="desc">User and Root Agent enter the Northline control plane. Mission state and delegation contracts produce bounded Root Worker Leaf execution, isolated worktrees, handoff receipts, deterministic verification, parent review, root-only integration and an auditable event store.</desc>
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#eaf6ff"/><stop offset="1" stop-color="#d8efff"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f5fbff"/><stop offset="1" stop-color="#e5f4ff"/>
+    </linearGradient>
+    <linearGradient id="violet" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#faf7ff"/><stop offset="1" stop-color="#eee8ff"/>
+    </linearGradient>
+    <linearGradient id="mint" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f3fffb"/><stop offset="1" stop-color="#e1f8ef"/>
+    </linearGradient>
+    <linearGradient id="amber" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fffaf0"/><stop offset="1" stop-color="#fff0cf"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="5" stdDeviation="8" flood-color="#123b5d" flood-opacity=".12"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6c91aa"/>
+    </marker>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2386c8"/>
+    </marker>
+    <style>
+      .title { font: 700 27px 'Segoe UI','Microsoft YaHei',sans-serif; fill:#113b5a; }
+      .subtitle { font: 500 18px 'Segoe UI','Microsoft YaHei',sans-serif; fill:#48677d; }
+      .label { font: 700 21px 'Segoe UI','Microsoft YaHei',sans-serif; fill:#123e61; }
+      .body { font: 500 16px 'Segoe UI','Microsoft YaHei',sans-serif; fill:#416276; }
+      .small { font: 500 14px 'Segoe UI','Microsoft YaHei',sans-serif; fill:#5a7486; }
+      .lane { font: 700 17px 'Segoe UI','Microsoft YaHei',sans-serif; letter-spacing:1px; fill:#58758a; }
+      .card { stroke-width:2; }
+      .line { fill:none; stroke:#7897aa; stroke-width:3; marker-end:url(#arrow); }
+      .lineBlue { fill:none; stroke:#2386c8; stroke-width:3.5; marker-end:url(#arrowBlue); }
+      .dashed { fill:none; stroke:#7aa3b9; stroke-width:2.5; stroke-dasharray:8 8; marker-end:url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1800" height="1960" fill="#ffffff"/>
+  <path d="M70 112 H1730" stroke="#dcecf5" stroke-width="2"/>
+  <text x="90" y="72" class="title" font-size="34">Northline · Verifiable delegation control plane</text>
+  <text x="90" y="101" class="subtitle">Long-horizon software work aligned by mission state, bounded delegation, evidence gates and Root-controlled integration</text>
+
+  <rect x="730" y="145" width="340" height="72" rx="36" fill="url(#header)" stroke="#82bce0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="900" y="190" text-anchor="middle" class="label">用户 / User</text>
+  <path d="M900 217 V250" class="lineBlue"/>
+
+  <rect x="600" y="250" width="600" height="100" rx="24" fill="url(#blue)" stroke="#5aa9e6" class="card" filter="url(#shadow)"/>
+  <text x="900" y="292" text-anchor="middle" class="title">Root Agent</text>
+  <text x="900" y="324" text-anchor="middle" class="subtitle">理解目标 · 保留最终决策与集成权</text>
+  <path d="M900 350 V390" class="lineBlue"/>
+
+  <rect x="490" y="390" width="820" height="94" rx="25" fill="#e4f3ff" stroke="#5aa9e6" stroke-width="2.5" filter="url(#shadow)"/>
+  <text x="900" y="430" text-anchor="middle" class="title">Northline Control Plane</text>
+  <text x="900" y="461" text-anchor="middle" class="subtitle">持久化主线 · 委派治理 · 证据重建 · 集成门禁</text>
+
+  <rect x="70" y="530" width="1660" height="235" rx="28" fill="#f8fcff" stroke="#d1e7f3" stroke-width="2"/>
+  <text x="105" y="570" class="lane">MISSION &amp; GOVERNANCE</text>
+
+  <rect x="110" y="600" width="450" height="120" rx="20" fill="url(#blue)" stroke="#83bde2" class="card" filter="url(#shadow)"/>
+  <text x="335" y="644" text-anchor="middle" class="label">MissionState</text>
+  <text x="335" y="676" text-anchor="middle" class="body">根目标 · 全局约束 · 决策</text>
+  <text x="335" y="700" text-anchor="middle" class="small">最终验收标准 · root commit</text>
+
+  <rect x="675" y="600" width="450" height="120" rx="20" fill="url(#violet)" stroke="#9b86e8" class="card" filter="url(#shadow)"/>
+  <text x="900" y="644" text-anchor="middle" class="label">Delegation Engine</text>
+  <text x="900" y="676" text-anchor="middle" class="body">契约版本 · 权限边界 · 依赖</text>
+  <text x="900" y="700" text-anchor="middle" class="small">递归深度与子任务数量限制</text>
+
+  <rect x="1240" y="600" width="450" height="120" rx="20" fill="url(#blue)" stroke="#83bde2" class="card" filter="url(#shadow)"/>
+  <text x="1465" y="644" text-anchor="middle" class="label">State Machine</text>
+  <text x="1465" y="676" text-anchor="middle" class="body">PLANNED → CLAIMED → EXECUTING</text>
+  <text x="1465" y="700" text-anchor="middle" class="small">REPORTING → VERIFIED → INTEGRATED</text>
+
+  <path d="M900 484 V555 H335 V600" class="line"/>
+  <path d="M900 484 V600" class="line"/>
+  <path d="M900 484 V555 H1465 V600" class="line"/>
+
+  <rect x="70" y="810" width="520" height="410" rx="28" fill="#f8fcff" stroke="#d1e7f3" stroke-width="2"/>
+  <text x="105" y="850" class="lane">RUNTIME ADAPTERS</text>
+  <rect x="110" y="885" width="440" height="92" rx="18" fill="url(#violet)" stroke="#a28ee6" class="card" filter="url(#shadow)"/>
+  <text x="330" y="924" text-anchor="middle" class="label">Agent Runtime Adapter</text>
+  <text x="330" y="952" text-anchor="middle" class="small">显式授权 · JSONL · thread · usage</text>
+  <rect x="110" y="1010" width="125" height="104" rx="16" fill="#ffffff" stroke="#c4b7f2" class="card"/>
+  <text x="172" y="1052" text-anchor="middle" class="label" font-size="19">Codex</text>
+  <text x="172" y="1080" text-anchor="middle" class="small">当前适配</text>
+  <rect x="260" y="1010" width="125" height="104" rx="16" fill="#ffffff" stroke="#c4b7f2" class="card"/>
+  <text x="322" y="1052" text-anchor="middle" class="label" font-size="19">OpenHands</text>
+  <text x="322" y="1080" text-anchor="middle" class="small">未来适配</text>
+  <rect x="410" y="1010" width="125" height="104" rx="16" fill="#ffffff" stroke="#c4b7f2" class="card"/>
+  <text x="472" y="1052" text-anchor="middle" class="label" font-size="19">SWE-agent</text>
+  <text x="472" y="1080" text-anchor="middle" class="small">研究对照</text>
+  <path d="M330 977 V1010" class="line"/>
+
+  <rect x="640" y="810" width="520" height="410" rx="28" fill="#f8fcff" stroke="#d1e7f3" stroke-width="2"/>
+  <text x="675" y="850" class="lane">ISOLATED WORKSPACES</text>
+  <rect x="680" y="885" width="440" height="92" rx="18" fill="url(#blue)" stroke="#83bde2" class="card" filter="url(#shadow)"/>
+  <text x="900" y="924" text-anchor="middle" class="label">Workspace Manager</text>
+  <text x="900" y="952" text-anchor="middle" class="small">固定基线 · 干净状态 · 独立 worktree</text>
+  <rect x="680" y="1010" width="200" height="130" rx="16" fill="#ffffff" stroke="#83bde2" class="card"/>
+  <text x="780" y="1050" text-anchor="middle" class="label" font-size="18">Worker Worktree</text>
+  <text x="780" y="1080" text-anchor="middle" class="small">固定 base_commit</text>
+  <text x="780" y="1105" text-anchor="middle" class="small">父任务隔离分支</text>
+  <rect x="900" y="1010" width="200" height="130" rx="16" fill="#ffffff" stroke="#83bde2" class="card"/>
+  <text x="1000" y="1050" text-anchor="middle" class="label" font-size="18">Leaf Worktree</text>
+  <text x="1000" y="1080" text-anchor="middle" class="small">独立分支</text>
+  <text x="1000" y="1105" text-anchor="middle" class="small">有界变更</text>
+  <path d="M900 977 V1010" class="line"/>
+
+  <rect x="1210" y="810" width="520" height="410" rx="28" fill="#fbfaff" stroke="#dfd8f8" stroke-width="2"/>
+  <text x="1245" y="850" class="lane">BOUNDED DELEGATION TREE</text>
+  <rect x="1270" y="885" width="400" height="82" rx="18" fill="url(#mint)" stroke="#68c6a1" class="card" filter="url(#shadow)"/>
+  <text x="1470" y="922" text-anchor="middle" class="label">Root</text>
+  <text x="1470" y="949" text-anchor="middle" class="small">理解主线 · 最终决策</text>
+  <rect x="1270" y="995" width="400" height="82" rx="18" fill="url(#mint)" stroke="#68c6a1" class="card"/>
+  <text x="1470" y="1032" text-anchor="middle" class="label">Worker</text>
+  <text x="1470" y="1059" text-anchor="middle" class="small">持有契约 · 获授权后派生</text>
+  <rect x="1270" y="1105" width="400" height="82" rx="18" fill="url(#mint)" stroke="#68c6a1" class="card"/>
+  <text x="1470" y="1142" text-anchor="middle" class="label">Leaf</text>
+  <text x="1470" y="1169" text-anchor="middle" class="small">单一有界契约 · 不得继续派生</text>
+  <path d="M1470 967 V995" class="lineBlue"/><path d="M1470 1077 V1105" class="lineBlue"/>
+
+  <path d="M900 720 V790 H330 V885" class="line"/>
+  <path d="M900 720 V885" class="line"/>
+  <path d="M900 720 V790 H1470 V885" class="line"/>
+
+  <rect x="70" y="1270" width="1660" height="310" rx="28" fill="#fffdf8" stroke="#f0dfb2" stroke-width="2"/>
+  <text x="105" y="1310" class="lane">HANDOFF &amp; EVIDENCE</text>
+  <rect x="110" y="1350" width="360" height="140" rx="18" fill="url(#amber)" stroke="#e1b65d" class="card" filter="url(#shadow)"/>
+  <text x="290" y="1392" text-anchor="middle" class="label">Git Evidence</text>
+  <text x="290" y="1424" text-anchor="middle" class="body">真实 commit · diff</text>
+  <text x="290" y="1454" text-anchor="middle" class="small">文件范围 · 祖先关系</text>
+  <rect x="520" y="1350" width="360" height="140" rx="18" fill="url(#amber)" stroke="#e1b65d" class="card" filter="url(#shadow)"/>
+  <text x="700" y="1392" text-anchor="middle" class="label">Test Evidence</text>
+  <text x="700" y="1424" text-anchor="middle" class="body">重新运行要求的测试</text>
+  <text x="700" y="1454" text-anchor="middle" class="small">命令 · 输出 · 超时</text>
+  <rect x="930" y="1350" width="360" height="140" rx="18" fill="url(#amber)" stroke="#e1b65d" class="card" filter="url(#shadow)"/>
+  <text x="1110" y="1392" text-anchor="middle" class="label">Protocol Evidence</text>
+  <text x="1110" y="1424" text-anchor="middle" class="body">身份 · 版本 · 状态 · 依赖</text>
+  <text x="1110" y="1454" text-anchor="middle" class="small">契约与交接一致性</text>
+  <rect x="1340" y="1350" width="350" height="140" rx="18" fill="url(#blue)" stroke="#83bde2" class="card" filter="url(#shadow)"/>
+  <text x="1515" y="1392" text-anchor="middle" class="label">Handoff Receipt</text>
+  <text x="1515" y="1424" text-anchor="middle" class="body">结果 commit · 变更文件</text>
+  <text x="1515" y="1454" text-anchor="middle" class="small">测试 · 假设 · 风险 · 未决问题</text>
+  <path d="M780 1140 V1280 H1515 V1350" class="line"/>
+  <path d="M1000 1140 V1260 H1515 V1350" class="line"/>
+  <path d="M290 1490 V1520 H820 V1580" class="line"/>
+  <path d="M700 1490 V1580" class="line"/>
+  <path d="M1110 1490 V1520 H820 V1580" class="line"/>
+  <path d="M1515 1490 V1580 H980" class="line"/>
+
+  <rect x="640" y="1605" width="520" height="112" rx="22" fill="url(#violet)" stroke="#9b86e8" class="card" filter="url(#shadow)"/>
+  <text x="900" y="1650" text-anchor="middle" class="title">Deterministic Verification Engine</text>
+  <text x="900" y="1682" text-anchor="middle" class="small">范围 · commit 新鲜度 · 契约版本 · 测试 · 根约束</text>
+  <path d="M900 1717 V1750" class="line"/>
+
+  <rect x="70" y="1630" width="440" height="108" rx="20" fill="#fff4f2" stroke="#e89486" class="card" filter="url(#shadow)"/>
+  <text x="290" y="1674" text-anchor="middle" class="label">拒绝 / 升级 / 重订契约</text>
+  <text x="290" y="1706" text-anchor="middle" class="small">REJECTED · STALE · BLOCKED</text>
+  <path d="M640 1660 H510" class="dashed"/>
+
+  <rect x="1270" y="1630" width="460" height="108" rx="20" fill="url(#mint)" stroke="#68c6a1" class="card" filter="url(#shadow)"/>
+  <text x="1500" y="1674" text-anchor="middle" class="label">Parent Review</text>
+  <text x="1500" y="1706" text-anchor="middle" class="small">验证通过后由 Root 审查剩余风险</text>
+  <path d="M1160 1660 H1270" class="lineBlue"/>
+
+  <rect x="720" y="1760" width="360" height="82" rx="18" fill="url(#mint)" stroke="#3da77c" class="card" filter="url(#shadow)"/>
+  <text x="900" y="1797" text-anchor="middle" class="label">Root-only Integrator</text>
+  <text x="900" y="1824" text-anchor="middle" class="small">唯一允许集成结果的人</text>
+  <path d="M1500 1738 V1800 H1080" class="lineBlue"/>
+  <path d="M900 1842 V1870" class="lineBlue"/>
+
+  <rect x="720" y="1880" width="360" height="82" rx="18" fill="url(#mint)" stroke="#3da77c" class="card" filter="url(#shadow)"/>
+  <text x="900" y="1917" text-anchor="middle" class="label">Global Tests &amp; Goal Acceptance</text>
+  <text x="900" y="1944" text-anchor="middle" class="small">通过后记录 INTEGRATED</text>
+
+  <rect x="1270" y="1760" width="460" height="142" rx="20" fill="#f6f8ff" stroke="#a9b7e8" class="card" filter="url(#shadow)"/>
+  <text x="1500" y="1803" text-anchor="middle" class="label">Research Harness</text>
+  <text x="1500" y="1834" text-anchor="middle" class="body">只观察事件与结果，不授权集成</text>
+  <text x="1500" y="1864" text-anchor="middle" class="small">metrics · failure cases · cost/latency</text>
+  <path d="M1500 1738 V1760" class="dashed"/>
+
+  <rect x="120" y="1840" width="420" height="98" rx="20" fill="#eef8ff" stroke="#83bde2" class="card"/>
+  <text x="330" y="1881" text-anchor="middle" class="label">Event Store</text>
+  <text x="330" y="1912" text-anchor="middle" class="small">JSONL 时间线 · 状态恢复 · 审计</text>
+  <path d="M720 1920 H540" class="line"/>
+  <path d="M1270 1880 H540" class="dashed"/>
+
+  <text x="90" y="1950" class="small">Northline 0.9.3 · deterministic evidence gates · bounded Root / Worker / Leaf delegation</text>
+</svg>

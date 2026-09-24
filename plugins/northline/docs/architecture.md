@@ -1,6 +1,6 @@
 # Northline Architecture
 
-The source for the scalable GitHub architecture diagram is [`architecture.mmd`](./architecture.mmd). The repository README embeds the same model as Mermaid so GitHub renders it as a zoomable SVG.
+The repository README presents the detailed architecture as a scalable SVG. This document defines the same control-plane boundaries, evidence flow and trust model in prose.
 
 ## Product boundary
 
