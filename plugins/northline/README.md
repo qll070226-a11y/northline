@@ -59,6 +59,7 @@ powershell -ExecutionPolicy Bypass -File scripts\setup_plugin.ps1
 系统边界、信任模型与数据流见 [architecture.md](./docs/architecture.md)。
 前向场景、指标与解释边界见 [product-forward-testing.md](./docs/product-forward-testing.md)。
 真实 Codex 任务的授权、证据与解释边界见 [live-forward-testing.md](./docs/live-forward-testing.md)。
+面向导师或评审的完整项目讲解、代码地图、运行流程和常见问题见 [interview-guide.md](./docs/interview-guide.md)。
 
 ## 状态目录
 
