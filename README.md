@@ -272,17 +272,6 @@ northline live-forward-test --workspace . --contract-id CONTRACT_ID `
   --authorize --output results\live-forward-test-authorized.json
 ```
 
-## 研究材料
-
-仓库附带英文论文草稿、文献矩阵、预注册、受控任务、合成故障注入和统计分析代码。研究问题集中在：
-
-- 受控递归委派是否降低目标漂移率；
-- 契约、交接凭证、父验收和 worktree 隔离分别贡献多少；
-- 哪些状态类和范围类错误能被确定性规则提前拦截；
-- 递归深度、验证强度、成本和延迟之间的关系。
-
-研究指标包括根目标满足率、范围越界率、过期状态接受率、证据不足率、错误合并率、测试通过率、token、延迟、重试和人工介入次数。论文材料位于 [`plugins/northline/docs`](./plugins/northline/docs)，其中 [导师面试讲解与答辩手册](./plugins/northline/docs/interview-guide.md) 汇总了项目动机、架构、实现、运行方式和常见追问；产品 Skill/Plugin 是当前首要交付物。
-
 ## 当前边界
 
 - 当前支持目标为 Python/Git 仓库。
